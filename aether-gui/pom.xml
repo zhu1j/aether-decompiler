@@ -41,6 +41,12 @@
             <artifactId>plugin-render-dot</artifactId>
             <version>${project.version}</version>
         </dependency>
+        <!-- Java 源码渲染后端：让源码视图真正显示 Java 代码。 -->
+        <dependency>
+            <groupId>com.aetherdecompiler</groupId>
+            <artifactId>plugin-render-java</artifactId>
+            <version>${project.version}</version>
+        </dependency>
 
         <!-- JavaFX（仅桌面）。 -->
         <dependency>

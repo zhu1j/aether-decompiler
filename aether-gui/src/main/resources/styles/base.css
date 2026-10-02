@@ -572,3 +572,10 @@
 .tool-button.menu {
     -fx-padding: 6 10 6 12;
 }
+
+/* 背景/外观对话框的状态提示行：显示最近一次操作结果。 */
+.dialog-status {
+    -fx-text-fill: #8a93a6;
+    -fx-font-size: 12px;
+    -fx-padding: 2 2 0 2;
+}

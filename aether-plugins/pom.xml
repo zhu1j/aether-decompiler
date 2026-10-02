@@ -23,5 +23,6 @@
     <modules>
         <module>plugin-source-jar</module>
         <module>plugin-render-dot</module>
+        <module>plugin-render-java</module>
     </modules>
 </project>

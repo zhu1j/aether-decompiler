@@ -24,7 +24,7 @@ import javafx.application.Application;
 /**
  * GUI 入口点。
  *
- * <p>刻意保持极简，并与 {@link AetherGuiApp} 分离：一个自身不继承
+ * <p>刻意保持极简，并与 {@link AetherStudio} 分离：一个自身不继承
  * {@link javafx.application.Application} 的启动器，可让 fat jar 在命令行未
  * 具名指定 JavaFX 模块的情况下也能启动，从而让打包产物可以双击运行。</p>
  *
@@ -44,6 +44,6 @@ public final class AetherLauncher {
     public static void main(String[] args) {
         System.out.println(AetherVersion.attribution());
         System.out.println("\"" + AetherVersion.MOTTO + "\"");
-        Application.launch(AetherGuiApp.class, args);
+        Application.launch(AetherStudio.class, args);
     }
 }
