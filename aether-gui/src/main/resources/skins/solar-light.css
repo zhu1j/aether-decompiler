@@ -1,0 +1,156 @@
+/*
+ * aether-decompiler — an independent, reusable JVM decompilation engine.
+ * Copyright 2026 Jerry Zhu (Zeek) <zhujiejava1@gmail.com>
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+/*
+ * Skin: Solar Light
+ * A bright, high-contrast daylight theme for well-lit rooms and projectors.
+ * @author Jerry Zhu (Zeek)
+ */
+
+.root {
+    -ae-bg:         #f4f6f8;
+    -ae-bg-alt:     #ffffff;
+    -ae-panel:      #eceff3;
+    -ae-border:     #d3dae2;
+    -ae-text:       #1c2530;
+    -ae-text-dim:   #64717f;
+    -ae-accent:     #007a6e;
+    -ae-accent-2:   #1f5fbf;
+    -ae-warn:       #b26a00;
+}
+
+.app-root {
+    -fx-background-color: -ae-bg;
+}
+
+.topbar {
+    -fx-background-color: linear-gradient(to bottom, #ffffff, #eceff3);
+}
+
+.brand {
+    -fx-text-fill: -ae-text;
+}
+
+.mark {
+    -fx-text-fill: -ae-accent;
+}
+
+.motto {
+    -fx-text-fill: -ae-text-dim;
+}
+
+.tool-button {
+    -fx-background-color: #ffffff;
+    -fx-text-fill: -ae-text;
+    -fx-border-color: -ae-border;
+}
+
+.tool-button:hover {
+    -fx-border-color: -ae-accent;
+    -fx-text-fill: -ae-accent;
+}
+
+.tool-button.primary {
+    -fx-background-color: -ae-accent;
+    -fx-text-fill: #ffffff;
+}
+
+.tool-button.primary:hover {
+    -fx-background-color: derive(-ae-accent, 15%);
+}
+
+.code-area .text {
+    -fx-fill: -ae-text;
+}
+
+.lineno {
+    -fx-background-color: -ae-panel;
+    -fx-text-fill: -ae-text-dim;
+}
+
+.keyword    { -fx-fill: -ae-accent-2; -fx-font-weight: bold; }
+.string     { -fx-fill: #a33b00; }
+.comment    { -fx-fill: -ae-text-dim; -fx-font-style: italic; }
+.number     { -fx-fill: -ae-accent; }
+.annotation { -fx-fill: #7a3fa0; }
+
+.bytecode-list .list-cell {
+    -fx-text-fill: -ae-text;
+}
+
+.bytecode-list .list-cell:odd {
+    -fx-background-color: #f0f3f6;
+}
+
+.bytecode-list .list-cell:selected {
+    -fx-background-color: derive(-ae-accent, 80%);
+    -fx-text-fill: -ae-text;
+}
+
+.cfg-node {
+    -fx-fill: #ffffff;
+    -fx-stroke: -ae-border;
+}
+
+.cfg-node-id {
+    -fx-fill: -ae-accent;
+}
+
+.cfg-node-label {
+    -fx-fill: -ae-text-dim;
+}
+
+.cfg-edge {
+    -fx-stroke: -ae-accent-2;
+}
+
+.cfg-arrow {
+    -fx-fill: -ae-accent-2;
+}
+
+.events-list .list-cell {
+    -fx-text-fill: -ae-text-dim;
+}
+
+.inspector-section {
+    -fx-background-color: #ffffff;
+}
+
+.kv-key {
+    -fx-text-fill: -ae-text-dim;
+}
+
+.kv-value {
+    -fx-text-fill: -ae-text;
+}
+
+.statusbar {
+    -fx-background-color: #ffffff;
+}
+
+.statusbar .label {
+    -fx-text-fill: -ae-text-dim;
+}
+
+.tree-cell {
+    -fx-text-fill: -ae-text;
+}
+
+.tree-cell:selected {
+    -fx-background-color: derive(-ae-accent, 82%);
+    -fx-text-fill: -ae-accent;
+}

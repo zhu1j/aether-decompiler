@@ -1,0 +1,61 @@
+/*
+ * aether-decompiler — an independent, reusable JVM decompilation engine.
+ * Copyright 2026 Jerry Zhu (Zeek) <zhujiejava1@gmail.com>
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+/*
+ * Skin: Obsidian Amber
+ * Warm amber on volcanic obsidian — a forge-lit reverse-engineering bench.
+ * @author Jerry Zhu (Zeek)
+ */
+
+.root {
+    -ae-bg:         #14110c;
+    -ae-bg-alt:     #1c1710;
+    -ae-panel:      #191410;
+    -ae-border:     #33281a;
+    -ae-text:       #f0e2cc;
+    -ae-text-dim:   #9c8563;
+    -ae-accent:     #f5b544;
+    -ae-accent-2:   #e8773a;
+    -ae-warn:       #ff8c42;
+}
+
+.brand {
+    -fx-text-fill: -ae-accent;
+    -fx-effect: dropshadow(gaussian, rgba(245, 181, 68, 0.45), 10, 0.2, 0, 0);
+}
+
+.mark {
+    -fx-text-fill: -ae-accent;
+    -fx-effect: dropshadow(gaussian, rgba(245, 181, 68, 0.8), 14, 0.3, 0, 0);
+}
+
+.topbar {
+    -fx-background-color: linear-gradient(to bottom, #1e1810, #14110c);
+}
+
+.tool-button.primary {
+    -fx-text-fill: #1a1206;
+    -fx-effect: dropshadow(gaussian, rgba(245, 181, 68, 0.4), 12, 0.2, 0, 0);
+}
+
+.keyword {
+    -fx-fill: -ae-accent-2;
+}
+
+.cfg-node-entry {
+    -fx-effect: dropshadow(gaussian, rgba(245, 181, 68, 0.35), 8, 0.2, 0, 0);
+}

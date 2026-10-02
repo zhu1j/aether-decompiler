@@ -1,0 +1,499 @@
+/*
+ * aether-decompiler — an independent, reusable JVM decompilation engine.
+ * Copyright 2026 Jerry Zhu (Zeek) <zhujiejava1@gmail.com>
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+/*
+ * base.css — the shared layout skeleton, applied beneath every skin.
+ *
+ * This file owns STRUCTURE and the design-token defaults only: spacing,
+ * panel composition, and fallback colours via JavaFX looked-up colour tokens
+ * (-fx-* custom properties). Every skin overrides those colour tokens, so a
+ * skin never has to re-declare layout. This is what makes a new look a
+ * one-file, zero-recompile operation.
+ *
+ * @author Jerry Zhu (Zeek)
+ * "Run the Code, Run the World!"
+ */
+
+.root {
+    /* Default (Midnight Aether) token set; each skin overrides these. */
+    -ae-bg:         #0b0f14;
+    -ae-bg-alt:     #10161d;
+    -ae-panel:      #0f151c;
+    -ae-border:     #1c2733;
+    -ae-text:       #d7e2ec;
+    -ae-text-dim:   #7d8b99;
+    -ae-accent:     #34e0c8;
+    -ae-accent-2:   #6ea8ff;
+    -ae-warn:       #f5b544;
+    -fx-font-family: "Segoe UI", "Helvetica Neue", "PingFang SC", "Microsoft YaHei", sans-serif;
+    -fx-font-size:  13px;
+}
+
+/* ----------------------------------------------------------------- top bar */
+
+.app-root {
+    -fx-background-color: -ae-bg;
+}
+
+.topbar {
+    -fx-padding: 10 16 10 16;
+    -fx-spacing: 10;
+    -fx-background-color: linear-gradient(to bottom, -ae-bg-alt, -ae-panel);
+    -fx-border-color: transparent transparent -ae-border transparent;
+    -fx-border-width: 0 0 1 0;
+}
+
+.mark {
+    -fx-text-fill: -ae-accent;
+    -fx-font-size: 18px;
+}
+
+.brand {
+    -fx-text-fill: -ae-text;
+    -fx-font-size: 15px;
+    -fx-font-weight: bold;
+}
+
+.motto {
+    -fx-text-fill: -ae-text-dim;
+    -fx-font-style: italic;
+    -fx-font-size: 12px;
+    -fx-padding: 0 0 0 8;
+}
+
+.tool-button {
+    -fx-background-color: -ae-bg-alt;
+    -fx-text-fill: -ae-text;
+    -fx-border-color: -ae-border;
+    -fx-border-radius: 6;
+    -fx-background-radius: 6;
+    -fx-padding: 6 12 6 12;
+    -fx-cursor: hand;
+}
+
+.tool-button:hover {
+    -fx-border-color: -ae-accent;
+    -fx-text-fill: -ae-accent;
+}
+
+.tool-button.primary {
+    -fx-background-color: -ae-accent;
+    -fx-text-fill: -ae-bg;
+    -fx-font-weight: bold;
+    -fx-border-color: transparent;
+}
+
+.tool-button.primary:hover {
+    -fx-background-color: derive(-ae-accent, 20%);
+}
+
+.skin-picker {
+    -fx-background-color: -ae-bg-alt;
+    -fx-border-color: -ae-border;
+    -fx-border-radius: 6;
+    -fx-background-radius: 6;
+}
+
+.skin-picker .list-cell {
+    -fx-text-fill: -ae-text;
+}
+
+/* --------------------------------------------------------------- navigation */
+
+.nav,
+.aside {
+    -fx-background-color: -ae-panel;
+}
+
+.nav {
+    -fx-border-color: transparent -ae-border transparent transparent;
+    -fx-border-width: 0 1 0 0;
+}
+
+.aside {
+    -fx-border-color: transparent transparent transparent -ae-border;
+    -fx-border-width: 0 0 0 1;
+}
+
+.panel-header {
+    -fx-text-fill: -ae-text-dim;
+    -fx-font-size: 11px;
+    -fx-font-weight: bold;
+    -fx-padding: 8 12 4 12;
+}
+
+.class-tree-view .tree-view,
+.class-tree-view .tree-view .virtual-flow,
+.class-tree-view .tree-view .clipped-container,
+.class-tree-view .tree-view .sheet {
+    -fx-background-color: transparent;
+}
+
+.tree-cell {
+    -fx-background-color: transparent;
+    -fx-text-fill: -ae-text;
+    -fx-padding: 3 8 3 8;
+}
+
+.tree-cell:hover {
+    -fx-background-color: derive(-ae-bg-alt, 8%);
+}
+
+.tree-cell:selected {
+    -fx-background-color: derive(-ae-accent, -55%);
+    -fx-text-fill: -ae-accent;
+}
+
+.filter-field {
+    -fx-background-color: -ae-bg-alt;
+    -fx-text-fill: -ae-text;
+    -fx-prompt-text-fill: -ae-text-dim;
+    -fx-border-color: -ae-border;
+    -fx-border-radius: 6;
+    -fx-background-radius: 6;
+    -fx-padding: 5 10 5 10;
+    -fx-margin: 4 12 4 12;
+}
+
+/* ---------------------------------------------------------------- workspace */
+
+.workspace {
+    -fx-background-color: -ae-bg;
+}
+
+.workspace .tab-header-area .tab-header-background {
+    -fx-background-color: -ae-panel;
+}
+
+.workspace .tab {
+    -fx-background-color: -ae-panel;
+    -fx-padding: 6 16 6 16;
+}
+
+.workspace .tab .tab-label {
+    -fx-text-fill: -ae-text-dim;
+}
+
+.workspace .tab:selected {
+    -fx-background-color: -ae-bg;
+    -fx-border-color: transparent transparent -ae-accent transparent;
+    -fx-border-width: 0 0 2 0;
+}
+
+.workspace .tab:selected .tab-label {
+    -fx-text-fill: -ae-accent;
+}
+
+.pane-body {
+    -fx-background-color: -ae-bg;
+}
+
+.split-pane {
+    -fx-background-color: -ae-bg;
+    -fx-padding: 0;
+}
+
+.split-pane > .split-pane-divider {
+    -fx-background-color: -ae-border;
+    -fx-padding: 0 1 0 1;
+}
+
+/* ------------------------------------------------------------- code editor */
+
+.code-editor,
+.code-area {
+    -fx-background-color: -ae-bg;
+}
+
+.code-area .text {
+    -fx-fill: -ae-text;
+}
+
+.code-area .caret {
+    -fx-stroke: -ae-accent;
+}
+
+.lineno {
+    -fx-background-color: -ae-panel;
+    -fx-text-fill: -ae-text-dim;
+    -fx-padding: 0 10 0 10;
+}
+
+.code-area .paragraph-box:has-caret {
+    -fx-background-color: derive(-ae-bg-alt, 6%);
+}
+
+/* Syntax token classes produced by CodeEditorView. */
+.keyword    { -fx-fill: -ae-accent-2; -fx-font-weight: bold; }
+.string     { -fx-fill: -ae-warn; }
+.comment    { -fx-fill: -ae-text-dim; -fx-font-style: italic; }
+.number     { -fx-fill: -ae-accent; }
+.annotation { -fx-fill: -ae-warn; }
+.paren,
+.brace,
+.bracket    { -fx-fill: -ae-text; }
+.semicolon  { -fx-fill: -ae-text-dim; }
+
+/* ---------------------------------------------------------------- bytecode */
+
+.bytecode-view,
+.bytecode-list {
+    -fx-background-color: -ae-bg;
+    -fx-control-inner-background: -ae-bg;
+}
+
+.bytecode-list .list-cell {
+    -fx-background-color: transparent;
+    -fx-text-fill: -ae-text;
+    -fx-font-family: "JetBrains Mono", "Consolas", "Menlo", monospace;
+    -fx-font-size: 12px;
+    -fx-padding: 2 12 2 12;
+}
+
+.bytecode-list .list-cell:odd {
+    -fx-background-color: derive(-ae-bg, 3%);
+}
+
+.bytecode-list .list-cell:selected {
+    -fx-background-color: derive(-ae-accent, -50%);
+    -fx-text-fill: -ae-accent;
+}
+
+/* --------------------------------------------------------------------- CFG */
+
+.cfg-view,
+.cfg-canvas {
+    -fx-background-color: -ae-bg;
+}
+
+.cfg-node {
+    -fx-fill: -ae-panel;
+    -fx-stroke: -ae-border;
+    -fx-stroke-width: 1.4;
+}
+
+.cfg-node-entry {
+    -fx-stroke: -ae-accent;
+    -fx-stroke-width: 2;
+}
+
+.cfg-node-id {
+    -fx-fill: -ae-accent;
+}
+
+.cfg-node-label {
+    -fx-fill: -ae-text-dim;
+}
+
+.cfg-edge {
+    -fx-stroke: -ae-accent-2;
+    -fx-stroke-width: 1.4;
+}
+
+.cfg-arrow {
+    -fx-fill: -ae-accent-2;
+}
+
+.cfg-edge-exception {
+    -fx-stroke: -ae-warn;
+    -fx-stroke-dash-array: 6 4;
+}
+
+.cfg-arrow-exception {
+    -fx-fill: -ae-warn;
+}
+
+/* ------------------------------------------------------------------ events */
+
+.events-view,
+.events-list {
+    -fx-background-color: -ae-panel;
+    -fx-control-inner-background: -ae-panel;
+}
+
+.events-list .list-cell {
+    -fx-background-color: transparent;
+    -fx-text-fill: -ae-text-dim;
+    -fx-font-family: "JetBrains Mono", "Consolas", monospace;
+    -fx-font-size: 11px;
+    -fx-padding: 1 12 1 12;
+}
+
+/* --------------------------------------------------------------- inspector */
+
+.inspector-view {
+    -fx-padding: 12;
+    -fx-spacing: 14;
+}
+
+.inspector-section {
+    -fx-background-color: derive(-ae-panel, 3%);
+    -fx-background-radius: 8;
+    -fx-border-color: -ae-border;
+    -fx-border-radius: 8;
+    -fx-padding: 8 10 10 10;
+}
+
+.kv-key {
+    -fx-text-fill: -ae-text-dim;
+    -fx-font-size: 12px;
+}
+
+.kv-value {
+    -fx-text-fill: -ae-text;
+    -fx-font-size: 12px;
+}
+
+.stage-done {
+    -fx-text-fill: -ae-accent;
+    -fx-font-size: 12px;
+}
+
+.stage-wait {
+    -fx-text-fill: -ae-text-dim;
+    -fx-font-size: 12px;
+}
+
+.inspector-footer {
+    -fx-text-fill: -ae-text-dim;
+    -fx-font-size: 11px;
+    -fx-padding: 10 0 0 0;
+    -fx-border-color: -ae-border transparent transparent transparent;
+    -fx-border-width: 1 0 0 0;
+}
+
+/* -------------------------------------------------------------- status bar */
+
+.event-dock {
+    -fx-background-color: -ae-panel;
+    -fx-border-color: -ae-border transparent transparent transparent;
+    -fx-border-width: 1 0 0 0;
+}
+
+.statusbar {
+    -fx-background-color: -ae-bg-alt;
+    -fx-padding: 5 14 5 14;
+    -fx-border-color: -ae-border transparent transparent transparent;
+    -fx-border-width: 1 0 0 0;
+}
+
+.statusbar .label {
+    -fx-text-fill: -ae-text-dim;
+    -fx-font-size: 12px;
+}
+
+.stage-progress {
+    -fx-accent: -ae-accent;
+}
+
+.stage-progress > .bar {
+    -fx-background-color: -ae-accent;
+}
+
+.stage-progress > .track {
+    -fx-background-color: -ae-border;
+}
+
+/* ---------------------------------------------------------------- scrollbar */
+
+.scroll-bar {
+    -fx-background-color: -ae-bg;
+}
+
+.scroll-bar .thumb {
+    -fx-background-color: -ae-border;
+    -fx-background-radius: 6;
+}
+
+.scroll-bar .thumb:hover {
+    -fx-background-color: derive(-ae-accent, -30%);
+}
+
+.scroll-bar .increment-button,
+.scroll-bar .decrement-button {
+    -fx-background-color: transparent;
+}
+
+.scroll-bar .increment-arrow,
+.scroll-bar .decrement-arrow {
+    -fx-background-color: -ae-border;
+}
+
+/* ------------------------------------------------------- custom backdrop */
+
+.root-stack {
+    -fx-background-color: -ae-bg;
+}
+
+.bg-layer {
+    -fx-background-color: transparent;
+}
+
+.bg-scrim {
+    -fx-background-color: -ae-bg;
+    -fx-opacity: 0;
+}
+
+/* A backdrop image is semitransparent by design; a themed scrim behind the
+   work area keeps code legible no matter how bright the image is. */
+.bg-active .bg-scrim {
+    -fx-opacity: 0.28;
+}
+
+.bg-active .app-root {
+    -fx-background-color: transparent;
+}
+
+.bg-active .pane-body,
+.bg-active .code-editor,
+.bg-active .code-area,
+.bg-active .bytecode-view,
+.bg-active .bytecode-list,
+.bg-active .cfg-view,
+.bg-active .cfg-canvas,
+.bg-active .events-view,
+.bg-active .events-list {
+    -fx-background-color: transparent;
+    -fx-control-inner-background: transparent;
+}
+
+.bg-active .lineno {
+    -fx-background-color: transparent;
+}
+
+.bg-active .inspector-section {
+    -fx-background-color: transparent;
+    -fx-border-color: -ae-border;
+}
+
+/* Backdrop controls in the top bar. */
+.opacity-label {
+    -fx-text-fill: -ae-text-dim;
+    -fx-font-size: 11px;
+}
+
+.backdrop-slider {
+    -fx-pref-width: 110;
+}
+
+.backdrop-slider .track {
+    -fx-background-color: -ae-border;
+}
+
+.backdrop-slider .thumb {
+    -fx-background-color: -ae-accent;
+}

@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>com.aetherdecompiler</groupId>
+        <artifactId>aether-decompiler</artifactId>
+        <version>0.1.0-SNAPSHOT</version>
+    </parent>
+
+    <artifactId>aether-plugin-api</artifactId>
+    <packaging>jar</packaging>
+
+    <name>aether-plugin-api</name>
+    <description>
+        The fixed plugin contract of aether-decompiler. Intentionally tiny and
+        dependency-free: a plugin only ever depends on this module, never on the
+        kernel. Extension-point interfaces are published here and must stay
+        backwards compatible within a major version.
+    </description>
+
+    <!--
+      Deliberately NO dependencies. This jar must remain extremely small so a
+      third-party plugin can be built against it without dragging in the kernel
+      or ASM.
+    -->
+</project>
