@@ -33,6 +33,7 @@ import com.aetherdecompiler.core.model.MethodModel;
 import com.aetherdecompiler.gui.background.Backdrop;
 import com.aetherdecompiler.gui.background.BackdropKind;
 import com.aetherdecompiler.gui.background.BackdropLibrary;
+import com.aetherdecompiler.gui.background.BundledBackdrops;
 import com.aetherdecompiler.gui.background.WallpaperProject;
 import com.aetherdecompiler.gui.skin.Skin;
 import com.aetherdecompiler.gui.skin.SkinManager;
@@ -185,6 +186,9 @@ public final class AetherStudio extends Application {
     public void start(Stage primaryStage) {
         this.stage = primaryStage;
         engine.eventBus().subscribe((AetherEvent ev) -> eventsView.append(ev));
+
+        // 首启播种：把随仓库内置的默认背景图补齐到用户背景库（幂等，不覆盖已有文件）。
+        BundledBackdrops.seed(BackdropLibrary.defaultRoot());
 
         BorderPane root = new BorderPane();
         root.getStyleClass().add("app-root");
