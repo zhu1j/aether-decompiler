@@ -31,6 +31,10 @@ import com.aetherdecompiler.core.engine.DecompilerEngine;
 import com.aetherdecompiler.core.engine.PluginHost;
 import com.aetherdecompiler.core.model.Insn;
 import com.aetherdecompiler.core.model.MethodModel;
+import com.aetherdecompiler.gui.background.Backdrop;
+import com.aetherdecompiler.gui.background.BackdropKind;
+import com.aetherdecompiler.gui.background.BackdropLibrary;
+import com.aetherdecompiler.gui.background.WallpaperProject;
 import com.aetherdecompiler.gui.skin.Skin;
 import com.aetherdecompiler.gui.skin.SkinManager;
 import com.aetherdecompiler.gui.view.BytecodeView;
@@ -40,6 +44,7 @@ import com.aetherdecompiler.gui.view.CodeEditorView;
 import com.aetherdecompiler.gui.view.EventsView;
 import com.aetherdecompiler.gui.view.InspectorView;
 import javafx.application.Application;
+import javafx.application.Platform;
 import javafx.collections.FXCollections;
 import javafx.concurrent.Task;
 import javafx.geometry.Insets;
@@ -49,12 +54,14 @@ import javafx.scene.control.Button;
 import javafx.scene.control.ComboBox;
 import javafx.scene.control.Label;
 import javafx.scene.control.ListCell;
+import javafx.scene.control.ListView;
 import javafx.scene.control.ProgressBar;
 import javafx.scene.control.Slider;
 import javafx.scene.control.SplitPane;
 import javafx.scene.control.Tab;
 import javafx.scene.control.TabPane;
 import javafx.scene.control.Tooltip;
+import javafx.scene.effect.GaussianBlur;
 import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
 import javafx.scene.layout.BorderPane;
@@ -63,8 +70,12 @@ import javafx.scene.layout.Priority;
 import javafx.scene.layout.Region;
 import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
+import javafx.scene.media.Media;
+import javafx.scene.media.MediaPlayer;
+import javafx.scene.media.MediaView;
 import javafx.stage.DirectoryChooser;
 import javafx.stage.FileChooser;
+import javafx.stage.Modality;
 import javafx.stage.Stage;
 
 import java.io.File;
@@ -76,6 +87,7 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Properties;
+import java.util.function.Consumer;
 
 /**
  * The Aether Decompiler Studio window.
@@ -89,22 +101,38 @@ import java.util.Properties;
  * kernel/plugin API, so it could be replaced by the CLI or a future IDE plug-in
  * without touching the engine.</p>
  *
- * <p>The window is a backdrop-aware shell: a custom background image, imported by
- * the user, is painted as a deliberately translucent layer beneath the work area
- * (its opacity is user-adjustable), while a themed scrim keeps code legible.
- * Because the shell is CSS-driven, a custom {@code *.css} stylesheet and a custom
- * backdrop can both be imported at runtime without recompiling anything.</p>
+ * <p>The window is a backdrop-aware shell. A custom background — a still image
+ * <em>or</em> a looping video, including a wall of the kind exported by
+ * Wallpaper&nbsp;Engine — is painted as a deliberately translucent layer behind
+ * the work area, with user-adjustable opacity, blur and fill modes. Because the
+ * shell is CSS-driven, a custom {@code *.css} stylesheet and a custom backdrop
+ * can both be imported at runtime without recompiling anything.</p>
+ *
+ * <h2>Starting the studio</h2>
+ * <p>The canonical entry point is {@link AetherLauncher}, <em>not</em> this
+ * class. This class extends {@link Application}; when JavaFX is supplied on the
+ * classpath (as a plain fat jar does) the JVM refuses to start an
+ * {@code Application} subclass directly and aborts with
+ * "JavaFX runtime components are missing". {@code AetherLauncher} is a plain class
+ * whose only job is to call {@code launch(...)}, which is the supported way to
+ * start a classpath-packaged JavaFX app. Run the jar, or use the provided
+ * {@code run-gui} scripts.</p>
  *
  * <p>Story analogy: the studio itself. The presses (kernel) and the parts
  * suppliers (plugins) are delivered and installed; the studio arranges them into
  * a room a person can actually walk through and work in — and hang whatever
- * painting they like on the back wall.</p>
+ * painting or film they like on the back wall.</p>
  *
  * @author Jerry Zhu (Zeek)
  */
 public final class AetherGuiApp extends Application {
 
+    /** Backdrop opacity presets used for the fill-mode combo. */
+    private static final String FILL_STRETCH = "拉伸填充";
+    private static final String FILL_FIT = "等比适应";
+
     private final SkinManager skinManager = new SkinManager(SkinManager.defaultUserSkinDir());
+    private final BackdropLibrary backdropLibrary = new BackdropLibrary(BackdropLibrary.defaultRoot());
     private final DecompilerEngine engine = new DecompilerEngine();
 
     private Stage stage;
@@ -123,15 +151,21 @@ public final class AetherGuiApp extends Application {
 
     // Backdrop layers.
     private final StackPane rootStack = new StackPane();
+    private final StackPane mediaHolder = new StackPane();
     private final ImageView bgImage = new ImageView();
+    private final MediaView bgVideo = new MediaView();
     private final Region scrim = new Region();
     private final Slider bgOpacity = new Slider(0.05, 1.0, Skin.DEFAULT_BACKGROUND_OPACITY);
+    private final Slider bgBlur = new Slider(0, 24, 0);
+    private final ComboBox<String> bgFill = new ComboBox<>();
+    private final GaussianBlur blurEffect = new GaussianBlur(0);
     private final Button clearBackdrop = new Button("清除背景");
 
+    private MediaPlayer videoPlayer;
     private ClassSource currentSource;
     private DecompilerEngine.DecompileResult currentResult;
     private String currentClass;
-    private Path currentBackgroundFile;
+    private Backdrop currentBackdrop;
 
     @Override
     public void start(Stage primaryStage) {
@@ -167,27 +201,55 @@ public final class AetherGuiApp extends Application {
     private Region buildBackdropLayer() {
         bgImage.setSmooth(true);
         bgImage.setPreserveRatio(false);
-        bgImage.setMouseTransparent(true);
         bgImage.fitWidthProperty().bind(rootStack.widthProperty());
         bgImage.fitHeightProperty().bind(rootStack.heightProperty());
-        bgImage.opacityProperty().bind(bgOpacity.valueProperty());
 
-        StackPane layer = new StackPane(bgImage);
-        layer.getStyleClass().add("bg-layer");
-        layer.setMouseTransparent(true);
+        bgVideo.setPreserveRatio(false);
+        bgVideo.fitWidthProperty().bind(rootStack.widthProperty());
+        bgVideo.fitHeightProperty().bind(rootStack.heightProperty());
+
+        mediaHolder.getChildren().addAll(bgImage, bgVideo);
+        mediaHolder.getStyleClass().add("bg-layer");
+        mediaHolder.setMouseTransparent(true);
+        mediaHolder.opacityProperty().bind(bgOpacity.valueProperty());
+        mediaHolder.setEffect(blurEffect);
 
         scrim.getStyleClass().add("bg-scrim");
         scrim.setMouseTransparent(true);
-        return layer;
+        return mediaHolder;
     }
 
-    private void setBackdrop(Image image, Path file, double opacity, boolean remember) {
-        bgImage.setImage(image);
-        currentBackgroundFile = (image == null) ? null : file;
-        if (image != null) {
-            bgOpacity.setValue(opacity);
+    private void applyBackdrop(Backdrop backdrop, boolean remember) {
+        disposeVideo();
+        bgImage.setImage(null);
+        bgVideo.setMediaPlayer(null);
+        currentBackdrop = backdrop;
+
+        if (backdrop != null) {
+            if (backdrop.kind() == BackdropKind.IMAGE) {
+                Image img = loadImage(backdrop.media());
+                if (img != null) {
+                    bgImage.setImage(img);
+                } else {
+                    currentBackdrop = null;
+                }
+            } else if (backdrop.kind() == BackdropKind.VIDEO) {
+                try {
+                    Media media = new Media(backdrop.media().toUri().toString());
+                    videoPlayer = new MediaPlayer(media);
+                    videoPlayer.setMute(true);
+                    videoPlayer.setCycleCount(MediaPlayer.INDEFINITE);
+                    videoPlayer.setOnError(() -> statusLabel.setText("视频背景播放错误"));
+                    bgVideo.setMediaPlayer(videoPlayer);
+                    videoPlayer.play();
+                } catch (RuntimeException ex) {
+                    statusLabel.setText("无法播放视频背景: " + ex.getMessage());
+                    currentBackdrop = null;
+                }
+            }
         }
-        boolean active = image != null;
+
+        boolean active = currentBackdrop != null;
         if (active) {
             if (!rootStack.getStyleClass().contains("bg-active")) {
                 rootStack.getStyleClass().add("bg-active");
@@ -197,38 +259,74 @@ public final class AetherGuiApp extends Application {
         }
         clearBackdrop.setDisable(!active);
         bgOpacity.setDisable(!active);
+        bgBlur.setDisable(!active);
+        bgFill.setDisable(!active);
         if (remember) {
             savePrefs();
         }
     }
 
     private void clearBackdropAction() {
-        setBackdrop(null, null, bgOpacity.getValue(), true);
-        statusLabel.setText("已清除背景图");
+        applyBackdrop(null, true);
+        statusLabel.setText("已清除背景");
+    }
+
+    private void disposeVideo() {
+        if (videoPlayer != null) {
+            try {
+                videoPlayer.stop();
+            } catch (RuntimeException ignored) {
+                // A media player that never started has nothing to stop.
+            }
+            videoPlayer.dispose();
+            videoPlayer = null;
+        }
+    }
+
+    private void updateFillMode(String mode) {
+        boolean fit = FILL_FIT.equals(mode);
+        bgImage.setPreserveRatio(fit);
+        bgVideo.setPreserveRatio(fit);
+        if (fit) {
+            bgImage.fitWidthProperty().unbind();
+            bgImage.fitHeightProperty().unbind();
+            bgVideo.fitWidthProperty().unbind();
+            bgVideo.fitHeightProperty().unbind();
+        }
     }
 
     // ------------------------------------------------------------------- prefs
 
     private void loadPrefs() {
         Properties props = readPrefs();
-        // Skin.
         String skinId = props.getProperty("skin");
         Skin skin = skinId == null ? null : skinManager.byId(skinId);
         if (skin != null) {
             skinBox.getSelectionModel().select(skin);
         }
-        // Backdrop.
-        String bgPath = props.getProperty("background");
+
+        String fill = props.getProperty("backgroundFill", FILL_STRETCH);
+        bgFill.getSelectionModel().select(fill);
+        updateFillMode(fill);
+
         double opacity = parseDouble(props.getProperty("backgroundOpacity"),
                 Skin.DEFAULT_BACKGROUND_OPACITY);
+        double blur = parseDouble(props.getProperty("backgroundBlur"), 0);
+        bgOpacity.setValue(opacity);
+        bgBlur.setValue(blur);
+        blurEffect.setRadius(blur);
+
+        String bgPath = props.getProperty("background");
         if (bgPath != null && !bgPath.isBlank()) {
             Path p = Path.of(bgPath);
-            Image img = loadImage(p);
-            if (img != null) {
-                setBackdrop(img, p, opacity, false);
+            if (Files.isRegularFile(p)) {
+                Backdrop bd = Backdrop.of(p.getFileName().toString(), p, null);
+                applyBackdrop(bd, false);
+            } else {
+                applyBackdrop(null, false);
             }
         } else {
-            setBackdrop(null, null, opacity, false);
+            applyBackdrop(null, false);
         }
     }
 
@@ -251,9 +349,11 @@ public final class AetherGuiApp extends Application {
         if (skin != null) {
             props.setProperty("skin", skin.id());
         }
-        if (currentBackgroundFile != null) {
-            props.setProperty("background", currentBackgroundFile.toAbsolutePath().toString());
+        if (currentBackdrop != null) {
+            props.setProperty("background", currentBackdrop.media().toAbsolutePath().toString());
             props.setProperty("backgroundOpacity", Double.toString(bgOpacity.getValue()));
+            props.setProperty("backgroundBlur", Double.toString(bgBlur.getValue()));
+            props.setProperty("backgroundFill", bgFill.getSelectionModel().getSelectedItem());
         }
         try {
             Path prefs = SkinManager.studioPrefsFile();
@@ -301,32 +401,10 @@ public final class AetherGuiApp extends Application {
         decompile.getStyleClass().addAll("tool-button", "primary");
         decompile.setOnAction(e -> decompileCurrent());
 
-        // ---- skin / backdrop customisation group ----
-        Button importBtn = new Button("\u2b07 导入皮肤/背景");
-        importBtn.getStyleClass().add("tool-button");
-        importBtn.setTooltip(new Tooltip("导入 *.css 皮肤，或导入图片作为半透明背景"));
-        importBtn.setOnAction(e -> importDialog());
-
-        Button openSkinDir = new Button("\u2728 皮肤目录");
-        openSkinDir.getStyleClass().add("tool-button");
-        openSkinDir.setTooltip(new Tooltip("打开 ~/.aether/skins 放置自定义皮肤"));
-        openSkinDir.setOnAction(e -> openSkinFolder());
-
-        Label opacityLabel = new Label("背景透明");
-        opacityLabel.getStyleClass().add("opacity-label");
-        bgOpacity.getStyleClass().add("backdrop-slider");
-        bgOpacity.setPrefWidth(110);
-        bgOpacity.setTooltip(new Tooltip("背景图不透明度（半透明）"));
-        bgOpacity.setDisable(true);
-        bgOpacity.valueProperty().addListener((obs, o, n) -> {
-            if (currentBackgroundFile != null) {
-                savePrefs();
-            }
-        });
-
-        clearBackdrop.getStyleClass().add("tool-button");
-        clearBackdrop.setDisable(true);
-        clearBackdrop.setOnAction(e -> clearBackdropAction());
+        Button backdropBtn = new Button("\u2b07 背景 / 外观");
+        backdropBtn.getStyleClass().addAll("tool-button", "menu");
+        backdropBtn.setTooltip(new Tooltip("打开背景库：导入图片、视频或 Wallpaper Engine 工程"));
+        backdropBtn.setOnAction(e -> openBackdropDialog());
 
         skinBox.getStyleClass().add("skin-picker");
         skinBox.setItems(FXCollections.observableArrayList(skinManager.all()));
@@ -341,11 +419,140 @@ public final class AetherGuiApp extends Application {
         skinBox.getSelectionModel().select(skinManager.defaultSkin());
 
         HBox bar = new HBox(10, mark, brand, motto, spacer,
-                skinBox, importBtn, openSkinDir, opacityLabel, bgOpacity, clearBackdrop,
-                openJar, openDir, decompile);
+                skinBox, backdropBtn, openJar, openDir, decompile);
         bar.getStyleClass().add("topbar");
         bar.setAlignment(Pos.CENTER_LEFT);
         return bar;
+    }
+
+    // -------------------------------------------------------- backdrop dialog
+
+    private void openBackdropDialog() {
+        Stage dialog = new Stage();
+        dialog.initOwner(stage);
+        dialog.initModality(Modality.WINDOW_MODAL);
+        dialog.setTitle("背景库 \u00b7 Wallpaper Engine / 图片 / 视频");
+
+        Label title = new Label("背景库");
+        title.getStyleClass().add("dialog-title");
+        Label hint = new Label("支持 PNG/JPG/GIF 等图片、MP4 等视频，以及 Wallpaper Engine 工程文件夹（含 project.json）。\n"
+                + "背景以半透明呈现，可用下方滑块调节透明度与模糊。");
+        hint.getStyleClass().add("dialog-hint");
+        hint.setWrapText(true);
+
+        ListView<Backdrop> gallery = new ListView<>();
+        gallery.getStyleClass().add("gallery");
+        gallery.setItems(FXCollections.observableArrayList(backdropLibrary.list()));
+        gallery.setCellFactory(v -> new BackdropCell());
+        if (currentBackdrop != null) {
+            gallery.getSelectionModel().select(currentBackdrop);
+        } else if (!gallery.getItems().isEmpty()) {
+            gallery.getSelectionModel().selectFirst();
+        }
+
+        Button importFile = new Button("导入图片/视频");
+        importFile.getStyleClass().add("tool-button");
+        importFile.setOnAction(e -> {
+            FileChooser chooser = new FileChooser();
+            chooser.setTitle("导入背景图片或视频");
+            chooser.getExtensionFilters().addAll(
+                    new FileChooser.ExtensionFilter("图片/视频", "*.png", "*.jpg", "*.jpeg", "*.gif",
+                            "*.bmp", "*.webp", "*.mp4", "*.m4v", "*.mov", "*.webm"),
+                    new FileChooser.ExtensionFilter("图片", "*.png", "*.jpg", "*.jpeg", "*.gif", "*.bmp", "*.webp"),
+                    new FileChooser.ExtensionFilter("视频", "*.mp4", "*.m4v", "*.mov", "*.webm"));
+            File f = chooser.showOpenDialog(dialog);
+            if (f != null) {
+                importIntoLibrary(dialog, gallery, f.toPath(), false);
+            }
+        });
+
+        Button importWe = new Button("导入 Wallpaper 工程");
+        importWe.getStyleClass().add("tool-button");
+        importWe.setOnAction(e -> {
+            DirectoryChooser chooser = new DirectoryChooser();
+            chooser.setTitle("选择 Wallpaper Engine 工程文件夹（含 project.json）");
+            File dir = chooser.showDialog(dialog);
+            if (dir != null) {
+                importIntoLibrary(dialog, gallery, dir.toPath(), true);
+            }
+        });
+
+        Button apply = new Button("应用所选");
+        apply.getStyleClass().addAll("tool-button", "primary");
+        apply.setOnAction(e -> {
+            Backdrop bd = gallery.getSelectionModel().getSelectedItem();
+            applyBackdrop(bd, true);
+            if (bd != null) {
+                statusLabel.setText("已应用背景: " + bd.title());
+            }
+        });
+
+        Button remove = new Button("移除所选");
+        remove.getStyleClass().add("tool-button");
+        remove.setOnAction(e -> {
+            Backdrop bd = gallery.getSelectionModel().getSelectedItem();
+            if (bd == null) {
+                return;
+            }
+            try {
+                backdropLibrary.remove(bd.media());
+                if (currentBackdrop != null && currentBackdrop.media().equals(bd.media())) {
+                    applyBackdrop(null, true);
+                }
+                gallery.setItems(FXCollections.observableArrayList(backdropLibrary.list()));
+            } catch (IOException ex) {
+                statusLabel.setText("移除失败: " + ex.getMessage());
+            }
+        });
+
+        Button openFolder = new Button("打开背景目录");
+        openFolder.getStyleClass().add("tool-button");
+        openFolder.setOnAction(e -> openFolder(backdropLibrary.ensureRoot()));
+
+        HBox importRow = new HBox(8, importFile, importWe, openFolder);
+        importRow.setAlignment(Pos.CENTER_LEFT);
+        HBox actionRow = new HBox(8, apply, remove);
+        actionRow.setAlignment(Pos.CENTER_RIGHT);
+        HBox.setHgrow(actionRow, Priority.ALWAYS);
+
+        HBox controls = new HBox(8,
+                new Label("透明度"), bgOpacity, new Label("模糊"), bgBlur, new Label("填充"), bgFill);
+        controls.setAlignment(Pos.CENTER_LEFT);
+        bgOpacity.setPrefWidth(120);
+        bgBlur.setPrefWidth(120);
+        bgFill.setItems(FXCollections.observableArrayList(FILL_STRETCH, FILL_FIT));
+
+        VBox box = new VBox(10, title, hint, gallery, importRow,
+                new HBox(10, controls, actionRow));
+        box.getStyleClass().add("backdrop-dialog");
+        VBox.setVgrow(gallery, Priority.ALWAYS);
+
+        Scene dscene = new Scene(box, 620, 560);
+        skinManager.apply(dscene, skinBox.getSelectionModel().getSelectedItem());
+        dialog.setScene(dscene);
+        dialog.showAndWait();
+    }
+
+    private void importIntoLibrary(Stage dialog, ListView<Backdrop> gallery, Path source, boolean project) {
+        try {
+            Backdrop bd = backdropLibrary.importAny(source);
+            List<Backdrop> items = new ArrayList<>(gallery.getItems());
+            items.add(bd);
+            gallery.setItems(FXCollections.observableArrayList(items));
+            gallery.getSelectionModel().select(bd);
+            applyBackdrop(bd, true);
+            statusLabel.setText("已导入并应用背景: " + bd.title());
+        } catch (IOException ex) {
+            statusLabel.setText("导入失败: " + ex.getMessage());
+        }
+    }
+
+    private void openFolder(Path dir) {
+        try {
+            java.awt.Desktop.getDesktop().open(dir.toFile());
+        } catch (Exception ex) {
+            statusLabel.setText("目录: " + dir);
+        }
     }
 
     // ---------------------------------------------------------------- workspace
@@ -409,54 +616,6 @@ public final class AetherGuiApp extends Application {
         skinManager.apply(scene, skin);
         if (skin != null) {
             statusLabel.setText("皮肤: " + skin.name() + "  \u00b7  " + skin.author());
-        }
-    }
-
-    private void openSkinFolder() {
-        Path dir = SkinManager.ensureUserSkinDir();
-        try {
-            java.awt.Desktop.getDesktop().open(dir.toFile());
-        } catch (Exception ex) {
-            statusLabel.setText("自定义皮肤目录: " + dir);
-        }
-    }
-
-    // ---------------------------------------------------------- import dialog
-
-    private void importDialog() {
-        FileChooser chooser = new FileChooser();
-        chooser.setTitle("导入皮肤 (*.css) 或 背景图片");
-        chooser.getExtensionFilters().addAll(
-                new FileChooser.ExtensionFilter("全部可导入 (*.css, 图片)",
-                        "*.css", "*.png", "*.jpg", "*.jpeg", "*.gif", "*.bmp", "*.webp"),
-                new FileChooser.ExtensionFilter("皮肤样式表 (*.css)", "*.css"),
-                new FileChooser.ExtensionFilter("背景图片", "*.png", "*.jpg", "*.jpeg", "*.gif", "*.bmp", "*.webp"));
-        File file = chooser.showOpenDialog(stage);
-        if (file == null) {
-            return;
-        }
-        Path path = file.toPath();
-        String name = path.getFileName().toString();
-        try {
-            if (name.toLowerCase(java.util.Locale.ROOT).endsWith(".css")) {
-                Skin imported = skinManager.importSkin(path);
-                skinBox.setItems(FXCollections.observableArrayList(skinManager.all()));
-                skinBox.getSelectionModel().select(imported);
-                statusLabel.setText("已导入皮肤: " + imported.name());
-            } else if (SkinManager.isImage(name)) {
-                Path stored = skinManager.importBackground(path);
-                Image img = loadImage(stored);
-                if (img == null) {
-                    statusLabel.setText("图片无法解码: " + name);
-                    return;
-                }
-                setBackdrop(img, stored, Skin.DEFAULT_BACKGROUND_OPACITY, true);
-                statusLabel.setText("已导入背景图 (半透明): " + stored.getFileName());
-            } else {
-                statusLabel.setText("不支持的文件类型: " + name);
-            }
-        } catch (IOException ex) {
-            statusLabel.setText("导入失败: " + ex.getMessage());
         }
     }
 
@@ -624,7 +783,6 @@ public final class AetherGuiApp extends Application {
             return;
         }
         ControlFlowGraph cfg = currentResult.cfgs().get(0);
-        // Line number is a coarse link: map to a proportional instruction index.
         int insnCount = cfg.instructions().size();
         int target = Math.min(line - 1, Math.max(0, insnCount - 1));
         bytecodeView.highlight(target);
@@ -645,6 +803,7 @@ public final class AetherGuiApp extends Application {
     @Override
     public void stop() {
         savePrefs();
+        disposeVideo();
         closeSource();
     }
 
@@ -685,6 +844,59 @@ public final class AetherGuiApp extends Application {
             box.setPadding(new Insets(2, 0, 2, 0));
             setText(null);
             setGraphic(box);
+        }
+    }
+
+    /**
+     * A gallery cell showing a backdrop's thumbnail, title and kind.
+     *
+     * @author Jerry Zhu (Zeek)
+     */
+    private static final class BackdropCell extends ListCell<Backdrop> {
+        @Override
+        protected void updateItem(Backdrop bd, boolean empty) {
+            super.updateItem(bd, empty);
+            if (empty || bd == null) {
+                setText(null);
+                setGraphic(null);
+                return;
+            }
+            ImageView thumb = new ImageView();
+            thumb.setFitWidth(96);
+            thumb.setFitHeight(54);
+            thumb.setPreserveRatio(true);
+            Region frame = new Region();
+            frame.getStyleClass().add("bd-thumb");
+            frame.setPrefSize(96, 54);
+            StackPane holder = new StackPane(frame, thumb);
+            holder.setPrefSize(96, 54);
+
+            Path preview = bd.preview();
+            Path visual = preview != null ? preview
+                    : (bd.kind() == BackdropKind.IMAGE ? bd.media() : null);
+            if (visual != null && Files.isRegularFile(visual)) {
+                try (InputStream in = Files.newInputStream(visual)) {
+                    Image img = new Image(in);
+                    if (!img.isError()) {
+                        thumb.setImage(img);
+                    }
+                } catch (IOException ignored) {
+                    // Leave the placeholder frame.
+                }
+            }
+
+            Label name = new Label(bd.title());
+            name.getStyleClass().add("bd-name");
+            Label kind = new Label(bd.kind() == BackdropKind.VIDEO ? "视频" : "图片");
+            kind.getStyleClass().add("bd-kind");
+            VBox text = new VBox(2, name, kind);
+            text.setAlignment(Pos.CENTER_LEFT);
+
+            HBox row = new HBox(10, holder, text);
+            row.setAlignment(Pos.CENTER_LEFT);
+            row.setPadding(new Insets(4, 6, 4, 6));
+            setText(null);
+            setGraphic(row);
         }
     }
 }

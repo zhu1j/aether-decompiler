@@ -99,12 +99,32 @@ dot -Tsvg out/com/example/Foo.class/method.dot -o cfg.svg
 ## 运行 —— GUI 工作台
 
 ```bash
+# 最省事：辅助脚本会自动定位 fat jar
+./run-gui.sh            # （Windows 用 run-gui.bat）
+
+# 或直接运行 fat jar
 java -jar aether-gui/target/aether-gui-0.1.0-SNAPSHOT.jar
 ```
 
 桌面工作台与 CLI 一样，是内核的纯调用方。它把引擎输出渲染成三个联动视图——
 **字节码**、**控制流图**、**RichTextFX 源码视图**——并配有可换肤的外壳、
 类树导航器、流水线事件停靠区和检查器面板。
+
+> **启动工作台——重要。** 请始终通过 fat jar 或 `run-gui` 脚本启动，它们会调用
+> 启动类 `com.aetherdecompiler.gui.AetherLauncher`。**不要**把 `Application` 子类
+> `AetherGuiApp` 当作主类来运行：
+>
+> ```bash
+> # ✗ 在类路径下会失败：
+> #   Error: JavaFX runtime components are missing, and are required to run this application
+> java -cp aether-gui/target/aether-gui-0.1.0-SNAPSHOT.jar com.aetherdecompiler.gui.AetherGuiApp
+> ```
+>
+> 当 JavaFX 以类路径方式提供（普通 fat jar 即是如此）时，JVM 启动器会**刻意拒绝**
+> 直接启动任何继承 `javafx.application.Application` 的类，并抛出 "JavaFX runtime
+> components are missing"。`AetherLauncher` 是一个普通类，只负责调用
+> `Application.launch(...)`，这正是启动"类路径打包的 JavaFX 应用"受支持的方式。
+> fat jar 的 `Main-Class` 已经设为该启动类，所以 `java -jar` 永远是正确的。
 
 ### 皮肤（Skins）
 
@@ -124,16 +144,30 @@ java -jar aether-gui/target/aether-gui-0.1.0-SNAPSHOT.jar
 就会出现在皮肤选择器里。也可以点击 **⬇ 导入皮肤/背景** 按钮在运行时导入 `.css`
 文件：它会被复制进用户皮肤目录并立即选中。
 
-### 自定义背景图
+### 自定义背景 & 背景库
 
-工作台可以在工作区背后显示一张背景图，并以**半透明**形式呈现，从而保证代码始终清晰：
+点击 **⬇ 背景 / 外观** 打开**背景库**。它收录你导入过的所有背景，并把所选背景绘制在
+工作区背后，且始终以**半透明**形式呈现，从而保证代码始终清晰。支持三类来源：
 
-- 点击 **⬇ 导入皮肤/背景**，选择一张 `*.png` / `*.jpg` / `*.jpeg` / `*.gif` /
-  `*.bmp` / `*.webp` 图片。它会被复制进 `~/.aether/backgrounds/` 并立即显示。
-- 用 **背景透明** 滑块调节背景不透明度——默认 `0.35`，范围 `0.05`–`1.0`。图片与
-  工作区之间有一层主题遮罩，用来保持文字对比度。
-- **清除背景** 可移除当前背景图。
-- 皮肤与背景的选择会记忆在 `~/.aether/studio.properties`。
+- **图片** —— `*.png` / `*.jpg` / `*.jpeg` / `*.gif` / `*.bmp` / `*.webp`。
+- **视频** —— `*.mp4` / `*.m4v` / `*.mov` / `*.webm`，静音、循环播放（基于 JavaFX
+  Media）。视频同样以半透明呈现。
+- **Wallpaper Engine 工程** —— 选择工程**文件夹**（含 `project.json` 的那个）。工作台
+  会读取描述文件里的 `file`（壁纸媒体）、`preview`（缩略图）、`title` 与 `type`，
+  把静态壁纸作为图片、把视频壁纸作为循环视频导入，并把 Wallpaper Engine 的
+  `schemecolor` 归一化成 `#rrggbb`。整个文件夹会被复制进背景库，以保持其相对引用有效。
+
+背景库对话框中的控件：
+
+- **应用所选** 应用所选背景；**移除所选** 把它从背景库删除。
+- **透明度** —— 默认 `0.35`，范围 `0.05`–`1.0`。
+- **模糊** —— 对背景做高斯模糊，`0`–`24` px，可把花哨的壁纸柔化到代码之后。
+- **填充** —— *拉伸填充* 铺满；*等比适应* 保持宽高比。
+- 背景与工作区之间有一层主题遮罩，用来保持对比度。
+
+所有导入内容都存放在 `~/.aether/backgrounds/`（一个普通的、可直接浏览的文件夹——点
+**打开背景目录** 即可打开）；当前的背景、透明度、模糊与填充模式会记忆在
+`~/.aether/studio.properties`。
 
 皮肤的 `.skin.properties` 元数据还可以声明一个默认背景：
 

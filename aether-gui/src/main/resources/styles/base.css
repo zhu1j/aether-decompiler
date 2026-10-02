@@ -497,3 +497,72 @@
 .backdrop-slider .thumb {
     -fx-background-color: -ae-accent;
 }
+
+/* Backdrop controls: a compact popover dialog. */
+.backdrop-dialog {
+    -fx-background-color: -ae-bg-alt;
+    -fx-border-color: -ae-accent;
+    -fx-border-width: 1;
+    -fx-background-radius: 10;
+    -fx-border-radius: 10;
+    -fx-padding: 14;
+    -fx-spacing: 10;
+    -fx-effect: dropshadow(gaussian, rgba(0, 0, 0, 0.55), 24, 0.2, 0, 6);
+}
+
+.backdrop-dialog .dialog-title {
+    -fx-text-fill: -ae-accent;
+    -fx-font-size: 14px;
+    -fx-font-weight: bold;
+}
+
+.backdrop-dialog .dialog-hint {
+    -fx-text-fill: -ae-text-dim;
+    -fx-font-size: 11px;
+}
+
+/* Backdrop gallery: thumbnails of every stored wallpaper. */
+.gallery {
+    -fx-pref-height: 220;
+    -fx-background-color: -ae-bg;
+    -fx-border-color: -ae-border;
+    -fx-border-radius: 8;
+    -fx-background-radius: 8;
+}
+
+.gallery .list-cell {
+    -fx-background-color: transparent;
+    -fx-text-fill: -ae-text;
+    -fx-padding: 4 6 4 6;
+}
+
+.gallery .list-cell:hover {
+    -fx-background-color: derive(-ae-bg-alt, 8%);
+}
+
+.gallery .list-cell:selected {
+    -fx-background-color: derive(-ae-accent, -55%);
+    -fx-text-fill: -ae-accent;
+}
+
+.bd-thumb {
+    -fx-background-color: derive(-ae-bg-alt, 6%);
+    -fx-background-radius: 6;
+    -fx-border-color: -ae-border;
+    -fx-border-radius: 6;
+}
+
+.bd-name {
+    -fx-text-fill: -ae-text;
+    -fx-font-size: 12px;
+}
+
+.bd-kind {
+    -fx-text-fill: -ae-accent-2;
+    -fx-font-size: 10px;
+}
+
+/* A toolbar button that carries a small dropdown arrow. */
+.tool-button.menu {
+    -fx-padding: 6 10 6 12;
+}

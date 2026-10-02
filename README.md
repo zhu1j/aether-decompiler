@@ -106,6 +106,10 @@ dot -Tsvg out/com/example/Foo.class/method.dot -o cfg.svg
 ## Run — GUI Studio
 
 ```bash
+# easiest: the helper script picks the fat jar for you
+./run-gui.sh            # (Windows: run-gui.bat)
+
+# or run the fat jar directly
 java -jar aether-gui/target/aether-gui-0.1.0-SNAPSHOT.jar
 ```
 
@@ -113,6 +117,25 @@ The desktop studio is a pure caller of the kernel, exactly like the CLI. It
 renders the engine's output in three linked views — **bytecode**, **control-flow
 graph**, and a **RichTextFX source view** — inside a themable shell with a class
 tree navigator, a pipeline-events dock, and an inspector.
+
+> **Starting the studio — important.** Always start it through the fat jar or the
+> `run-gui` scripts, which invoke the launcher class
+> `com.aetherdecompiler.gui.AetherLauncher`. Do **not** run the `Application`
+> subclass `AetherGuiApp` as the main class:
+>
+> ```bash
+> # ✗ fails on the classpath with:
+> #   Error: JavaFX runtime components are missing, and are required to run this application
+> java -cp aether-gui/target/aether-gui-0.1.0-SNAPSHOT.jar com.aetherdecompiler.gui.AetherGuiApp
+> ```
+>
+> When JavaFX is supplied on the classpath (as a plain fat jar does), the JVM's
+> launcher deliberately refuses to start any class that extends
+> `javafx.application.Application` and aborts with "JavaFX runtime components are
+> missing". `AetherLauncher` is a plain class that only calls
+> `Application.launch(...)`, which is the supported way to start a
+> classpath-packaged JavaFX app. The fat jar's `Main-Class` is already set to the
+> launcher, so `java -jar` is always correct.
 
 ### Skins
 
@@ -134,19 +157,36 @@ signature flourishes). Five skins ship built in:
 You can also use the **⬇ 导入皮肤/背景** button to import a `.css` file at
 runtime; it is copied into the user skin directory and selected immediately.
 
-### Custom backdrop
+### Custom backdrop & the background library
 
-The studio can show a background image behind the work area, rendered
-**semi-transparently** so code stays legible:
+Click **⬇ 背景 / 外观** to open the **background library** (背景库). It holds
+every backdrop you have imported and paints the selected one behind the work
+area, always **semi-transparently** so code stays legible. Three kinds of source
+are supported:
 
-- Use **⬇ 导入皮肤/背景** and pick a `*.png` / `*.jpg` / `*.jpeg` / `*.gif` /
-  `*.bmp` / `*.webp` image. It is copied into `~/.aether/backgrounds/` and shown
-  immediately.
-- Adjust **背景透明** (backdrop opacity) with the slider — default `0.35`,
-  range `0.05`–`1.0`. A themed scrim sits between the image and the work area so
-  text contrast is preserved.
-- **清除背景** removes the current image.
-- Skin and backdrop choices are remembered in `~/.aether/studio.properties`.
+- **Images** — `*.png` / `*.jpg` / `*.jpeg` / `*.gif` / `*.bmp` / `*.webp`.
+- **Videos** — `*.mp4` / `*.m4v` / `*.mov` / `*.webm`, played muted and looping
+  (via JavaFX Media). Videos are translucent too.
+- **Wallpaper Engine projects** — pick the project **folder** (the one containing
+  `project.json`). The studio reads the descriptor's `file` (the wallpaper media),
+  `preview` (thumbnail), `title` and `type`, imports a still wallpaper as an image
+  and a video wallpaper as a looping video, and normalises the Wallpaper Engine
+  `schemecolor` into a `#rrggbb` value. The whole folder is copied into the
+  library so its relative references keep working.
+
+Controls in the library dialog:
+
+- **Apply** applies the selected backdrop; **Remove** deletes it from the library.
+- **透明度** (opacity) — default `0.35`, range `0.05`–`1.0`.
+- **模糊** (blur) — Gaussian blur of the backdrop, `0`–`24` px, so a busy
+  wallpaper can be softened behind the code.
+- **填充** (fill) — *拉伸填充* stretches to fill; *等比适应* preserves the
+  aspect ratio.
+- A themed scrim sits between the backdrop and the work area to preserve contrast.
+
+Everything imported is stored under `~/.aether/backgrounds/` (a plain, browsable
+folder — the **打开背景目录** button opens it), and the current choice, opacity,
+blur and fill mode are remembered in `~/.aether/studio.properties`.
 
 A skin's `.skin.properties` sidecar may also declare a default backdrop:
 

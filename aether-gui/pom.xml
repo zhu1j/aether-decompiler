@@ -53,6 +53,12 @@
             <artifactId>javafx-graphics</artifactId>
             <version>${javafx.version}</version>
         </dependency>
+        <!-- Video backdrops / Wallpaper Engine video wallpapers. -->
+        <dependency>
+            <groupId>org.openjfx</groupId>
+            <artifactId>javafx-media</artifactId>
+            <version>${javafx.version}</version>
+        </dependency>
 
         <!-- RichTextFX: the code editor of the studio. -->
         <dependency>
