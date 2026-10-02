@@ -42,12 +42,14 @@ import com.aetherdecompiler.gui.view.ClassTreeView;
 import com.aetherdecompiler.gui.view.CodeEditorView;
 import com.aetherdecompiler.gui.view.EventsView;
 import com.aetherdecompiler.gui.view.InspectorView;
+import com.aetherdecompiler.gui.view.OutputTreeView;
 import com.aetherdecompiler.plugins.render.java.NativeJavaDecompiler;
 import javafx.application.Application;
 import javafx.application.Platform;
 import javafx.collections.FXCollections;
 import javafx.concurrent.Task;
 import javafx.geometry.Insets;
+import javafx.geometry.Orientation;
 import javafx.geometry.Pos;
 import javafx.geometry.Rectangle2D;
 import javafx.scene.Scene;
@@ -138,6 +140,7 @@ public final class AetherStudio extends Application {
     private final BytecodeView bytecodeView = new BytecodeView();
     private final CfgView cfgView = new CfgView();
     private final ClassTreeView classTree = new ClassTreeView();
+    private final OutputTreeView outputTree = new OutputTreeView();
     private final EventsView eventsView = new EventsView();
     private final InspectorView inspector = new InspectorView();
 
@@ -162,6 +165,8 @@ public final class AetherStudio extends Application {
     private DecompilerEngine.DecompileResult currentResult;
     private String currentClass;
     private Backdrop currentBackdrop;
+    /** 反编译输出的根目录（存放生成的 {@code .java} 文件）。 */
+    private Path outputRoot;
 
     /** 界面是否已完成构建。构建期间皮肤下拉框的初始选择不应触发应用与偏好持久化。 */
     private boolean uiReady;
@@ -187,9 +192,11 @@ public final class AetherStudio extends Application {
         double winH = Math.min(880, Math.max(600, vb.getHeight() - 80));
         scene = new Scene(rootStack, winW, winH);
         classTree.setClassSelectListener(this::openClass);
+        outputTree.setFileSelectListener(this::openOutputFile);
         codeView.setLineClickListener(this::onSourceLineClicked);
 
         loadPrefs();
+        refreshOutputTree();
         // 选定并应用初始皮肤：优先使用偏好中保存的皮肤，否则回退到默认皮肤。
         // 必须放在场景创建之后，避免在场景尚未就绪时应用样式表导致空指针。
         Skin initialSkin = skinBox.getSelectionModel().getSelectedItem();
@@ -246,17 +253,30 @@ public final class AetherStudio extends Application {
                     currentBackdrop = null;
                 }
             } else if (backdrop.kind() == BackdropKind.VIDEO) {
+                // 先铺设预览静帧作为海报，避免视频解码前或解码失败时呈现空白。
+                if (backdrop.preview() != null && Files.isRegularFile(backdrop.preview())) {
+                    Image poster = loadImage(backdrop.preview());
+                    if (poster != null) {
+                        bgImage.setImage(poster);
+                    }
+                }
                 try {
                     Media media = new Media(backdrop.media().toUri().toString());
                     videoPlayer = new MediaPlayer(media);
                     videoPlayer.setMute(true);
                     videoPlayer.setCycleCount(MediaPlayer.INDEFINITE);
-                    videoPlayer.setOnError(() -> statusLabel.setText("视频背景播放错误"));
+                    videoPlayer.setOnError(() -> {
+                        statusLabel.setText("视频背景播放错误，已回退到预览图");
+                        eventsView.append(new AetherEvent(AetherEvent.Phase.PLUGIN, IRKind.BYTES,
+                                "video backdrop error: " + backdrop.title(), null));
+                    });
                     bgVideo.setMediaPlayer(videoPlayer);
                     videoPlayer.play();
                 } catch (RuntimeException ex) {
-                    statusLabel.setText("无法播放视频背景: " + ex.getMessage());
-                    currentBackdrop = null;
+                    statusLabel.setText("无法播放视频背景（已回退到预览图）: " + ex.getMessage());
+                    if (bgImage.getImage() == null) {
+                        currentBackdrop = null;
+                    }
                 }
             }
         }
@@ -328,6 +348,11 @@ public final class AetherStudio extends Application {
         bgBlur.setValue(blur);
         blurEffect.setRadius(blur);
 
+        String outRoot = props.getProperty("outputRoot");
+        if (outRoot != null && !outRoot.isBlank()) {
+            outputRoot = Path.of(outRoot);
+        }
+
         String bgPath = props.getProperty("background");
         if (bgPath != null && !bgPath.isBlank()) {
             Path p = Path.of(bgPath);
@@ -360,6 +385,9 @@ public final class AetherStudio extends Application {
         Skin skin = skinBox.getSelectionModel().getSelectedItem();
         if (skin != null) {
             props.setProperty("skin", skin.id());
+        }
+        if (outputRoot != null) {
+            props.setProperty("outputRoot", outputRoot.toAbsolutePath().toString());
         }
         if (currentBackdrop != null) {
             props.setProperty("background", currentBackdrop.media().toAbsolutePath().toString());
@@ -406,12 +434,24 @@ public final class AetherStudio extends Application {
         Button openJar = new Button("打开 JAR");
         openJar.getStyleClass().add("tool-button");
         openJar.setOnAction(e -> openJarDialog());
-        Button openDir = new Button("打开目录");
+        Button openDir = new Button("打开类目录");
         openDir.getStyleClass().add("tool-button");
         openDir.setOnAction(e -> openDirDialog());
         Button decompile = new Button("反编译");
         decompile.getStyleClass().addAll("tool-button", "primary");
         decompile.setOnAction(e -> decompileCurrent());
+
+        // 新增：把整个来源反编译成完整的 .java 文件，按包结构写入输出目录。
+        Button exportAll = new Button("导出全部源码");
+        exportAll.getStyleClass().addAll("tool-button", "primary");
+        exportAll.setTooltip(new Tooltip("将当前来源中的所有类反编译为 .java 文件，输出到设定的输出目录"));
+        exportAll.setOnAction(e -> exportAllSources());
+        Button setOutDir = new Button("设置输出目录");
+        setOutDir.getStyleClass().add("tool-button");
+        setOutDir.setOnAction(e -> chooseOutputDir());
+        Button openOutDir = new Button("打开输出目录");
+        openOutDir.getStyleClass().add("tool-button");
+        openOutDir.setOnAction(e -> openFolder(ensureOutputRoot()));
 
         Button backdropBtn = new Button("\u2b07 背景 / 外观");
         backdropBtn.getStyleClass().addAll("tool-button", "menu");
@@ -432,7 +472,8 @@ public final class AetherStudio extends Application {
         });
 
         HBox bar = new HBox(10, mark, brand, motto, spacer,
-                skinBox, backdropBtn, openJar, openDir, decompile);
+                skinBox, backdropBtn, openJar, openDir, decompile,
+                exportAll, setOutDir, openOutDir);
         bar.getStyleClass().add("topbar");
         bar.setAlignment(Pos.CENTER_LEFT);
         return bar;
@@ -602,13 +643,135 @@ public final class AetherStudio extends Application {
         }
     }
 
+    // ------------------------------------------------------ 反编译输出 / 导出
+
+    /** 确保输出目录存在，必要时回退到用户主目录下的默认位置。 */
+    private Path ensureOutputRoot() {
+        if (outputRoot == null) {
+            outputRoot = Path.of(System.getProperty("user.home"), "AetherDecompiled");
+        }
+        try {
+            Files.createDirectories(outputRoot);
+        } catch (IOException ignored) {
+            // 目录已存在或无法创建；后续写入会给出明确错误。
+        }
+        return outputRoot;
+    }
+
+    /** 让用户选择反编译输出目录，并持久化。 */
+    private void chooseOutputDir() {
+        DirectoryChooser chooser = new DirectoryChooser();
+        chooser.setTitle("选择反编译输出目录");
+        if (outputRoot != null && Files.isDirectory(outputRoot)) {
+            chooser.setInitialDirectory(outputRoot.toFile());
+        }
+        File dir = chooser.showDialog(stage);
+        if (dir != null) {
+            outputRoot = dir.toPath();
+            savePrefs();
+            refreshOutputTree();
+            statusLabel.setText("输出目录: " + outputRoot);
+        }
+    }
+
+    /** 重新扫描输出目录并刷新“反编译输出”树。 */
+    private void refreshOutputTree() {
+        outputTree.setRoot(outputRoot);
+    }
+
+    /** 在源码视图中打开一个已反编译的 {@code .java} 文件。 */
+    private void openOutputFile(Path file) {
+        try {
+            codeView.setSource(Files.readString(file));
+            statusLabel.setText("查看反编译文件: " + file);
+        } catch (IOException ex) {
+            statusLabel.setText("读取失败: " + ex.getMessage());
+        }
+    }
+
+    /**
+     * 把当前来源中的每个类反编译为完整的 {@code .java} 文件，按包结构写入
+     * 输出目录。这是“反编译成一个完整的 Java 工程”这一诉求的核心动作。
+     */
+    private void exportAllSources() {
+        if (currentSource == null) {
+            statusLabel.setText("请先打开 JAR 或目录");
+            return;
+        }
+        Path out = ensureOutputRoot();
+        ClassSource source = currentSource;
+        List<String> names = new ArrayList<>(source.classNames());
+        Task<Integer> task = new Task<>() {
+            @Override
+            protected Integer call() {
+                int ok = 0;
+                for (int i = 0; i < names.size(); i++) {
+                    String internal = names.get(i);
+                    try {
+                        java.util.Optional<byte[]> bytes = source.readClass(internal);
+                        if (bytes.isEmpty()) {
+                            continue;
+                        }
+                        String code = NativeJavaDecompiler.decompile(internal, bytes.get());
+                        if (code == null || code.isBlank()) {
+                            continue;
+                        }
+                        Path target = out.resolve(internal + ".java");
+                        Files.createDirectories(target.getParent());
+                        Files.writeString(target, code);
+                        ok++;
+                    } catch (Exception ignored) {
+                        // 单个类失败不影响整体导出。
+                    }
+                    updateProgress(i + 1, names.size());
+                }
+                return ok;
+            }
+        };
+        progress.progressProperty().bind(task.progressProperty());
+        task.setOnSucceeded(e -> {
+            progress.progressProperty().unbind();
+            progress.setProgress(0);
+            int ok = task.getValue();
+            refreshOutputTree();
+            statusLabel.setText("已导出 " + ok + " / " + names.size() + " 个 .java 文件 \u2192 " + out);
+            eventsView.append(new AetherEvent(AetherEvent.Phase.PLUGIN, IRKind.BYTES,
+                    "exported " + ok + " java source file(s)", null));
+            openFolder(out);
+        });
+        task.setOnFailed(e -> {
+            progress.progressProperty().unbind();
+            progress.setProgress(0);
+            statusLabel.setText("导出失败: " + (task.getException() == null
+                    ? "未知错误" : task.getException().getMessage()));
+        });
+        Thread thread = new Thread(task, "aether-export");
+        thread.setDaemon(true);
+        thread.start();
+    }
+
+    private static String sanitize(String name) {
+        return name.replaceAll("[^A-Za-z0-9._-]", "_");
+    }
+
     // ---------------------------------------------------------------- 工作区
 
     private Region buildWorkspace() {
-        VBox nav = new VBox(classTree);
-        nav.getStyleClass().add("nav");
-        nav.setPrefWidth(300);
+        // 左侧并行展示两个结构：上方是待反编译来源（JAR / 目录）的类结构，
+        // 下方是反编译输出目录的源码文件结构。
+        VBox jarPane = new VBox(classTree);
+        jarPane.getStyleClass().add("nav");
         VBox.setVgrow(classTree, Priority.ALWAYS);
+
+        VBox outPane = new VBox(outputTree);
+        outPane.getStyleClass().add("nav");
+        VBox.setVgrow(outputTree, Priority.ALWAYS);
+
+        SplitPane nav = new SplitPane(jarPane, outPane);
+        nav.setOrientation(Orientation.VERTICAL);
+        nav.setDividerPositions(0.55);
+        nav.getStyleClass().add("nav-split");
+        nav.setPrefWidth(320);
 
         TabPane tabs = new TabPane();
         tabs.getStyleClass().add("workspace");
@@ -703,6 +866,11 @@ public final class AetherStudio extends Application {
             currentSource = plugin.open(locator, Options.empty());
             List<String> names = currentSource.classNames();
             classTree.setClasses(names, new File(locator).getName());
+            if (outputRoot == null) {
+                outputRoot = Path.of(System.getProperty("user.home"),
+                        "AetherDecompiled", sanitize(new File(locator).getName()));
+            }
+            refreshOutputTree();
             statusLabel.setText("已加载: " + currentSource.describe() + "  (" + names.size() + " 个类)");
             inspector.setInfo(null);
             codeView.setSource("// 选择左侧类以查看字节码与结构\n// " + AetherVersion.PROJECT + " \u2014 "

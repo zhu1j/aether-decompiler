@@ -1,29 +1,4 @@
-# ---- Java / Maven ----
 target/
 *.class
-*.jar
-!**/src/**/*.jar
-
-# ---- IDE ----
 .idea/
 *.iml
-*.ipr
-*.iws
-.vscode/
-.settings/
-.project
-.classpath
-
-# ---- OS ----
-.DS_Store
-Thumbs.db
-
-# ---- Generated / scratch ----
-out/
-demo-out/
-build.log
-
-# ---- Secrets (never commit) ----
-*.token
-.gh_token
-.env

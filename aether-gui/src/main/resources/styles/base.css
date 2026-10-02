@@ -579,3 +579,72 @@
     -fx-font-size: 12px;
     -fx-padding: 2 2 0 2;
 }
+
+/* ===================================================== 控制流图（本轮重绘） */
+/* 节点按内容自适应高度，标题与正文之间以分隔线区分，边与箭头分常规/异常两色。 */
+.cfg-node {
+    -fx-fill: -ae-panel;
+    -fx-stroke: -ae-border;
+    -fx-stroke-width: 1.4;
+}
+.cfg-node-entry {
+    -fx-stroke: -ae-accent;
+    -fx-stroke-width: 1.8;
+}
+.cfg-node-sep {
+    -fx-fill: -ae-border;
+}
+.cfg-node-id {
+    -fx-fill: -ae-accent-2;
+}
+.cfg-node-label {
+    -fx-fill: -ae-text;
+}
+.cfg-edge {
+    -fx-stroke: -ae-text-dim;
+    -fx-stroke-width: 1.4;
+    -fx-fill: null;
+}
+.cfg-arrow {
+    -fx-fill: -ae-text-dim;
+}
+.cfg-edge-exception {
+    -fx-stroke: -ae-warn;
+    -fx-stroke-dash-array: 6 4;
+}
+.cfg-arrow-exception {
+    -fx-fill: -ae-warn;
+}
+
+/* ============================================ 背景半透明（启用背景时生效） */
+/* 此前仅有少数面板透明，主容器（顶栏/导航/检查器/标签区/分隔器）仍为不透明，
+   导致背景图被整片遮住、看起来“没换背景”。这里让它们透出壁纸；
+   半透明蒙层（scrim）改用主题底色并降低不透明度，从而兼顾浅色/深色皮肤的可读性。 */
+.bg-active .topbar {
+    -fx-background-color: transparent;
+    -fx-border-color: transparent transparent -ae-border transparent;
+}
+.bg-active .app-root,
+.bg-active .split-pane,
+.bg-active .split-pane > .split-pane-divider,
+.bg-active .workspace,
+.bg-active .workspace > .tab-header-area,
+.bg-active .workspace .tab-header-area .tab-header-background,
+.bg-active .workspace .tab,
+.bg-active .workspace .tab:selected,
+.bg-active .nav,
+.bg-active .aside,
+.bg-active .event-dock,
+.bg-active .statusbar,
+.bg-active .class-tree-view,
+.bg-active .output-tree-view {
+    -fx-background-color: transparent;
+}
+.bg-active .workspace > .tab-content-area {
+    -fx-background-color: transparent;
+}
+/* 半透明主题蒙层：用主题底色 + 降低节点不透明度，浅/深皮肤都能保证文字可读。 */
+.bg-active .bg-scrim {
+    -fx-background-color: -ae-bg;
+    -fx-opacity: 0.55;
+}
