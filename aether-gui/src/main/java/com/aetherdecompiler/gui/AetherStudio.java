@@ -129,10 +129,12 @@ import java.util.function.Consumer;
  */
 public final class AetherStudio extends Application {
 
-    /** 用于填充模式下拉框的背景透明度预设。 */
-    private static final String FILL_STRETCH = "拉伸填充";
-    private static final String FILL_FIT = "等比适应";
+    /** 背景填充模式：铺满窗口（默认）/ 等比适应 / 拉伸填充 / 原始尺寸。 */
     private static final String FILL_COVER = "铺满窗口";
+    private static final String FILL_FIT = "等比适应";
+    private static final String FILL_STRETCH = "拉伸填充";
+    /** 原始尺寸（1:1）：按源图分辨率 1 比 1 显示，绝不放大，动图最清晰。 */
+    private static final String FILL_NATIVE = "原始尺寸 (1:1)";
 
     private final SkinManager skinManager = new SkinManager(SkinManager.defaultUserSkinDir());
     private final BackdropLibrary backdropLibrary = new BackdropLibrary(BackdropLibrary.defaultRoot());
@@ -224,6 +226,12 @@ public final class AetherStudio extends Application {
         primaryStage.setTitle(AetherVersion.PROJECT + "  \u00b7  Studio");
         primaryStage.setScene(scene);
         primaryStage.show();
+
+        // 窗口首次显示后再校准一次背景几何：此前场景/布局尺寸可能尚未就绪，
+        // 若此时计算，“铺满窗口”会按错误的尺寸得出裁切区域，导致背景只铺满一半。
+        primaryStage.widthProperty().addListener((o, a, b) -> applyFillLayout());
+        primaryStage.heightProperty().addListener((o, a, b) -> applyFillLayout());
+        javafx.application.Platform.runLater(this::applyFillLayout);
 
         eventsView.append(new AetherEvent(AetherEvent.Phase.PLUGIN, IRKind.BYTES,
                 "studio ready \u2014 " + AetherVersion.attribution(), null));
@@ -391,8 +399,14 @@ public final class AetherStudio extends Application {
      * </ul>
      */
     private void applyFillLayout() {
+        // 用场景实际尺寸兜底：首次布局前 rootStack 尺寸可能为 0，
+        // 若用 1×1 计算几何，背景就会“只铺满一小块/一半”。
         double w = Math.max(1, rootStack.getWidth());
         double h = Math.max(1, rootStack.getHeight());
+        if (scene != null) {
+            w = Math.max(w, scene.getWidth());
+            h = Math.max(h, scene.getHeight());
+        }
         String mode = bgFill.getSelectionModel().getSelectedItem();
 
         Image img = bgImage.getImage();
@@ -403,63 +417,105 @@ public final class AetherStudio extends Application {
         double vw = mp == null || mp.getMedia() == null ? 0 : mp.getMedia().getWidth();
         double vh = mp == null || mp.getMedia() == null ? 0 : mp.getMedia().getHeight();
 
-        if (FILL_STRETCH.equals(mode)) {
-            bgImage.setPreserveRatio(false);
-            bgVideo.setPreserveRatio(false);
-            setGeometry(bgImage, w, h, w, h);
-            setGeometry(bgVideo, w, h, w, h);
-        } else if (FILL_FIT.equals(mode)) {
-            bgImage.setPreserveRatio(true);
-            bgVideo.setPreserveRatio(true);
-            double[] d1 = contain(iw, ih, w, h);
-            double[] d2 = contain(vw, vh, w, h);
-            setGeometry(bgImage, w, h, d1[0], d1[1]);
-            setGeometry(bgVideo, w, h, d2[0], d2[1]);
-        } else {
-            bgImage.setPreserveRatio(true);
-            bgVideo.setPreserveRatio(true);
-            double[] d1 = cover(iw, ih, w, h);
-            double[] d2 = cover(vw, vh, w, h);
-            setGeometry(bgImage, w, h, d1[0], d1[1]);
-            setGeometry(bgVideo, w, h, d2[0], d2[1]);
-        }
+        applyImageGeometry(bgImage, mode, iw, ih, w, h);
+        applyMediaGeometry(bgVideo, mode, vw, vh, w, h);
 
         bgWeb.setPrefWidth(w);
         bgWeb.setPrefHeight(h);
     }
 
-    /** 设置媒体节点的显示尺寸；尺寸为 0 时退回窗口尺寸。 */
-    private static void setGeometry(javafx.scene.Node node, double w, double h,
-                                    double fw, double fh) {
-        if (node instanceof ImageView iv) {
-            iv.fitWidthProperty().unbind();
-            iv.fitHeightProperty().unbind();
-            iv.setFitWidth(fw > 0 ? fw : w);
-            iv.setFitHeight(fh > 0 ? fh : h);
-        } else if (node instanceof MediaView mv) {
-            mv.fitWidthProperty().unbind();
-            mv.fitHeightProperty().unbind();
-            mv.setFitWidth(fw > 0 ? fw : w);
-            mv.setFitHeight(fh > 0 ? fh : h);
+    /**
+     * 依据填充模式设置背景图片的几何。
+     *
+     * 关键修复：铺满窗口（cover）不再依赖 StackPane 居中 + 外层裁剪框，而是把
+     * 节点的显示尺寸精确设为窗口尺寸，再用 viewport 把源图居中裁剪到窗口宽高比，
+     * 最后拉伸铺满。这样无论窗口与图片比例如何，节点都恰好铺满整个窗口，既不会
+     * 出现“只铺满一半/留黑边”，也不会产生形变。
+     */
+    private static void applyImageGeometry(ImageView iv, String mode, double iw, double ih,
+                                           double w, double h) {
+        if (iv.getImage() == null) {
+            return;
+        }
+        if (FILL_NATIVE.equals(mode)) {
+            // 原始尺寸（1:1）：按源图分辨率显示，绝不放大，动图最清晰。
+            iv.setViewport(null);
+            iv.setPreserveRatio(true);
+            iv.setFitWidth(iw > 0 ? iw : w);
+            iv.setFitHeight(ih > 0 ? ih : h);
+        } else if (FILL_STRETCH.equals(mode)) {
+            iv.setViewport(null);
+            iv.setPreserveRatio(false);
+            iv.setFitWidth(w);
+            iv.setFitHeight(h);
+        } else if (FILL_FIT.equals(mode)) {
+            // 等比适应：完整可见，允许留边。
+            iv.setViewport(null);
+            iv.setPreserveRatio(true);
+            iv.setFitWidth(w);
+            iv.setFitHeight(h);
+        } else if (iw <= 0 || ih <= 0) {
+            iv.setViewport(null);
+            iv.setPreserveRatio(false);
+            iv.setFitWidth(w);
+            iv.setFitHeight(h);
+        } else {
+            iv.setViewport(centerCrop(iw, ih, w, h));
+            iv.setPreserveRatio(false);
+            iv.setFitWidth(w);
+            iv.setFitHeight(h);
         }
     }
 
-    /** 等比适应（contain）：完整可见，可能留黑边。 */
-    private static double[] contain(double iw, double ih, double w, double h) {
-        if (iw <= 0 || ih <= 0) {
-            return new double[]{w, h};
+    /** 视频背景的几何：与图片一致，用 viewport 裁剪实现真正的“铺满窗口”。 */
+    private static void applyMediaGeometry(MediaView mv, String mode, double mw, double mh,
+                                           double w, double h) {
+        if (mv.getMediaPlayer() == null) {
+            return;
         }
-        double scale = Math.min(w / iw, h / ih);
-        return new double[]{iw * scale, ih * scale};
+        if (FILL_NATIVE.equals(mode)) {
+            mv.setViewport(null);
+            mv.setPreserveRatio(true);
+            mv.setFitWidth(mw > 0 ? mw : w);
+            mv.setFitHeight(mh > 0 ? mh : h);
+        } else if (FILL_STRETCH.equals(mode)) {
+            mv.setViewport(null);
+            mv.setPreserveRatio(false);
+            mv.setFitWidth(w);
+            mv.setFitHeight(h);
+        } else if (FILL_FIT.equals(mode)) {
+            mv.setViewport(null);
+            mv.setPreserveRatio(true);
+            mv.setFitWidth(w);
+            mv.setFitHeight(h);
+        } else if (mw <= 0 || mh <= 0) {
+            mv.setViewport(null);
+            mv.setPreserveRatio(false);
+            mv.setFitWidth(w);
+            mv.setFitHeight(h);
+        } else {
+            mv.setViewport(centerCrop(mw, mh, w, h));
+            mv.setPreserveRatio(false);
+            mv.setFitWidth(w);
+            mv.setFitHeight(h);
+        }
     }
 
-    /** 铺满窗口（cover）：保持比例放大到完全覆盖，溢出由裁剪框裁掉。 */
-    private static double[] cover(double iw, double ih, double w, double h) {
-        if (iw <= 0 || ih <= 0) {
-            return new double[]{w, h};
+    /**
+     * 计算把源图（iw×ih）按窗口宽高比（w:h）居中裁剪所需的 viewport 矩形。
+     * 返回矩形与窗口同比例，配合“拉伸铺满”即可实现无变形的 cover。
+     */
+    private static Rectangle2D centerCrop(double iw, double ih, double w, double h) {
+        double winAspect = w / h;
+        double srcAspect = iw / ih;
+        if (srcAspect > winAspect) {
+            // 源图更宽：裁掉左右两侧。
+            double vw = ih * winAspect;
+            return new Rectangle2D((iw - vw) / 2.0, 0, vw, ih);
         }
-        double scale = Math.max(w / iw, h / ih);
-        return new double[]{iw * scale, ih * scale};
+        // 源图更高：裁掉上下两侧。
+        double vh = iw / winAspect;
+        return new Rectangle2D(0, (ih - vh) / 2.0, iw, vh);
     }
 
     // ------------------------------------------------------------------- 偏好
@@ -474,7 +530,8 @@ public final class AetherStudio extends Application {
 
         String fill = props.getProperty("backgroundFill", FILL_COVER);
         if (bgFill.getItems().isEmpty()) {
-            bgFill.setItems(FXCollections.observableArrayList(FILL_COVER, FILL_STRETCH, FILL_FIT));
+            bgFill.setItems(FXCollections.observableArrayList(
+                    FILL_COVER, FILL_FIT, FILL_STRETCH, FILL_NATIVE));
         }
         bgFill.getSelectionModel().select(fill);
         applyFillLayout();
@@ -733,7 +790,8 @@ public final class AetherStudio extends Application {
         bgBlur.setPrefWidth(180);
         bgFill.setPrefWidth(180);
         if (bgFill.getItems().isEmpty()) {
-            bgFill.setItems(FXCollections.observableArrayList(FILL_COVER, FILL_STRETCH, FILL_FIT));
+            bgFill.setItems(FXCollections.observableArrayList(
+                    FILL_COVER, FILL_FIT, FILL_STRETCH, FILL_NATIVE));
         }
         // 切换填充模式立即重算几何，实现分辨率自适应（默认“铺满窗口”）。
         bgFill.getSelectionModel().selectedItemProperty().addListener((o, a, b) -> {

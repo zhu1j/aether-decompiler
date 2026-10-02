@@ -648,3 +648,8 @@
     -fx-background-color: -ae-bg;
     -fx-opacity: 0.55;
 }
+/* 根 StackPane 本身默认铺满主题底色；启用背景时必须透空，
+   否则未被壁纸覆盖的区域会露出一条纯色带，看起来“背景只铺了一半”。 */
+.bg-active .root-stack {
+    -fx-background-color: transparent;
+}
