@@ -272,6 +272,10 @@ public final class SkinManager {
      * @param skin  要应用的皮肤
      */
     public void apply(Scene scene, Skin skin) {
+        if (scene == null) {
+            // 防御性处理：场景尚未创建时安全跳过，避免空指针。
+            return;
+        }
         scene.getStylesheets().clear();
         URL base = SkinManager.class.getClassLoader().getResource(BASE_CSS);
         if (base != null) {

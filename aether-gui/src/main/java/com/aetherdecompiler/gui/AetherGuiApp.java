@@ -160,6 +160,9 @@ public final class AetherGuiApp extends Application {
     private String currentClass;
     private Backdrop currentBackdrop;
 
+    /** 界面是否已完成构建。构建期间皮肤下拉框的初始选择不应触发应用与偏好持久化。 */
+    private boolean uiReady;
+
     @Override
     public void start(Stage primaryStage) {
         this.stage = primaryStage;
@@ -179,7 +182,15 @@ public final class AetherGuiApp extends Application {
         codeView.setLineClickListener(this::onSourceLineClicked);
 
         loadPrefs();
-        applySkin(skinManager.defaultSkin());
+        // 选定并应用初始皮肤：优先使用偏好中保存的皮肤，否则回退到默认皮肤。
+        // 必须放在场景创建之后，避免在场景尚未就绪时应用样式表导致空指针。
+        Skin initialSkin = skinBox.getSelectionModel().getSelectedItem();
+        if (initialSkin == null) {
+            initialSkin = skinManager.defaultSkin();
+        }
+        skinBox.getSelectionModel().select(initialSkin);
+        applySkin(initialSkin);
+        uiReady = true;
 
         primaryStage.setTitle(AetherVersion.PROJECT + "  \u00b7  Studio");
         primaryStage.setScene(scene);
@@ -404,12 +415,13 @@ public final class AetherGuiApp extends Application {
         skinBox.setCellFactory(v -> new SkinCell());
         skinBox.setButtonCell(new SkinCell());
         skinBox.getSelectionModel().selectedItemProperty().addListener((obs, old, skin) -> {
-            if (skin != null) {
+            // 构建期间的选择不触发应用；只有界面就绪后用户切换皮肤才生效并持久化，
+            // 否则会在载入偏好之前把默认皮肤写回偏好文件，覆盖用户已保存的选择。
+            if (skin != null && uiReady) {
                 applySkin(skin);
                 savePrefs();
             }
         });
-        skinBox.getSelectionModel().select(skinManager.defaultSkin());
 
         HBox bar = new HBox(10, mark, brand, motto, spacer,
                 skinBox, backdropBtn, openJar, openDir, decompile);
@@ -614,6 +626,10 @@ public final class AetherGuiApp extends Application {
     // -------------------------------------------------------------------- 皮肤
 
     private void applySkin(Skin skin) {
+        if (scene == null) {
+            // 场景尚未创建：此时应用皮肤会被跳过，皮肤在场景就绪后统一应用。
+            return;
+        }
         skinManager.apply(scene, skin);
         if (skin != null) {
             statusLabel.setText("皮肤: " + skin.name() + "  \u00b7  " + skin.author());
