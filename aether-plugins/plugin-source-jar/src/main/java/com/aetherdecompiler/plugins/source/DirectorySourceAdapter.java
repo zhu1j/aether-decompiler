@@ -1,21 +1,20 @@
 /*
- * aether-decompiler — an independent, reusable JVM decompilation engine.
+ * aether-decompiler —— 一个独立、可复用的 JVM 反编译引擎。
  * Copyright 2026 Jerry Zhu (Zeek) <zhujiejava1@gmail.com>
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+ * 依据 Apache License, Version 2.0（下称“本许可证”）授权；
+ * 除非遵守本许可证，否则你不得使用本文件。
+ * 你可以在以下地址获取本许可证副本：
  *
  *     http://www.apache.org/licenses/LICENSE-2.0
  *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * 除非适用法律要求或书面同意，依据本许可证分发的软件
+ * 均按“原样（AS IS）”提供，不附带任何明示或默示的担保，
+ * 包括但不限于对适销性、特定用途适用性的担保。
+ * 关于本许可证下具体权限与限制的表述，请参见本许可证。
  *
  * @author Jerry Zhu (Zeek)
- * "Run the Code, Run the World!"
+ * “Run the Code, Run the World!”
  */
 package com.aetherdecompiler.plugins.source;
 
@@ -30,14 +29,12 @@ import java.util.Optional;
 import java.util.stream.Stream;
 
 /**
- * A directory-backed {@link ClassSource}, self-contained inside this plugin.
+ * 由目录支撑的 {@link ClassSource}，自包含于本插件之内。
  *
- * <p>Kept separate from the kernel's own directory source on purpose: a plugin
- * must depend only on {@code aether-plugin-api}, so it cannot borrow kernel
- * classes. Duplicating this tiny walk is the correct price for that isolation.</p>
+ * <p>刻意与内核自带的目录来源分离：插件只能依赖 {@code aether-plugin-api}，
+ * 因此不能借用内核的类。复制这一小段遍历代码，是换取这种隔离的正确代价。</p>
  *
- * <p>Story analogy: the plugin carries its own pocket torch instead of borrowing
- * the factory's fixed ceiling light.</p>
+ * <p>故事类比：插件自带手电筒，而不是借用工厂固定的顶灯。</p>
  *
  * @author Jerry Zhu (Zeek)
  */
@@ -46,7 +43,7 @@ public final class DirectorySourceAdapter implements ClassSource {
     private final Path root;
 
     /**
-     * @param root the directory to scan
+     * @param root 要扫描的目录
      */
     public DirectorySourceAdapter(Path root) {
         this.root = root;
@@ -71,7 +68,7 @@ public final class DirectorySourceAdapter implements ClassSource {
                         names.add(rel.substring(0, rel.length() - ".class".length()));
                     });
         } catch (IOException ex) {
-            // Unwalkable directory yields an empty index.
+            // 无法遍历的目录产出空索引。
         }
         return names;
     }
@@ -91,6 +88,6 @@ public final class DirectorySourceAdapter implements ClassSource {
 
     @Override
     public void close() {
-        // Nothing to release.
+        // 无需释放任何东西。
     }
 }

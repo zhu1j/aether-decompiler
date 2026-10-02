@@ -1,21 +1,20 @@
 /*
- * aether-decompiler — an independent, reusable JVM decompilation engine.
+ * aether-decompiler —— 一个独立、可复用的 JVM 反编译引擎。
  * Copyright 2026 Jerry Zhu (Zeek) <zhujiejava1@gmail.com>
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+ * 依据 Apache License, Version 2.0（下称“本许可证”）授权；
+ * 除非遵守本许可证，否则你不得使用本文件。
+ * 你可以在以下地址获取本许可证副本：
  *
  *     http://www.apache.org/licenses/LICENSE-2.0
  *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * 除非适用法律要求或书面同意，依据本许可证分发的软件
+ * 均按“原样（AS IS）”提供，不附带任何明示或默示的担保，
+ * 包括但不限于对适销性、特定用途适用性的担保。
+ * 关于本许可证下具体权限与限制的表述，请参见本许可证。
  *
  * @author Jerry Zhu (Zeek)
- * "Run the Code, Run the World!"
+ * “Run the Code, Run the World!”
  */
 package com.aetherdecompiler.core.asm;
 
@@ -54,30 +53,28 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * <strong>The single ASM isolation seam.</strong>
+ * <strong>唯一的 ASM 隔离接缝。</strong>
  *
- * <p>This is the ONLY class in the entire kernel that imports
- * {@code org.objectweb.asm.*}. Its job is to translate ASM's mutable,
- * library-specific tree into aether's immutable, library-agnostic model — and
- * to convert every ASM failure into an {@link AetherException}. No ASM type ever
- * escapes this class.</p>
+ * <p>这是整个内核中唯一导入 {@code org.objectweb.asm.*} 的类。它的职责是把 ASM 可变的、
+ * 与库相关的树结构，翻译成 aether 不可变的、与库无关的模型 —— 并把每一次 ASM 失败
+ * 转换为 {@link AetherException}。任何 ASM 类型都不会逃逸出这个类。</p>
  *
- * <p>Design consequence: to swap ASM for another bytecode library, exactly one
- * file changes. This is what "thin wrapper" means concretely.</p>
+ * <p>设计后果：要把 ASM 换成别的字节码库，只需改动恰好一个文件。这就是“薄包装”
+ * 的具体含义。</p>
  *
- * <p>Story analogy: the customs booth at a border. Cargo is repacked into local
- * crates here; the foreign crate design is never seen inside the country.</p>
+ * <p>故事类比：边境口岸的海关柜台。货物在这里被重新装入本地板条箱；
+ * 国外板条箱的样式在国内永远看不到。</p>
  *
  * @author Jerry Zhu (Zeek)
  */
 public final class AsmClassParser {
 
     /**
-     * Parse raw class bytes into the immutable model.
+     * 把原始类字节解析为不可变模型。
      *
-     * @param bytes the class file bytes
-     * @return the immutable class model
-     * @throws AetherException on any malformed or unsupported input
+     * @param bytes 类文件的字节
+     * @return 不可变的类模型
+     * @throws AetherException 当输入格式错误或不受支持时抛出
      */
     public ClassModel parse(byte[] bytes) {
         if (bytes == null || bytes.length == 0) {
@@ -86,11 +83,11 @@ public final class AsmClassParser {
         try {
             ClassReader reader = new ClassReader(bytes);
             ClassNode node = new ClassNode();
-            // EXPAND_FRAMES normalises stack-map frames to a single form.
+            // EXPAND_FRAMES 会把栈映射帧统一为单一形式。
             reader.accept(node, ClassReader.EXPAND_FRAMES);
             return toModel(node);
         } catch (IllegalArgumentException ex) {
-            // ASM reports an unsupported class-file version this way.
+            // ASM 就是这样报告不支持的类文件版本的。
             String msg = ex.getMessage() == null ? "" : ex.getMessage();
             if (msg.toLowerCase().contains("unsupported class file")) {
                 throw new AetherException(ErrorCode.INPUT_UNSUPPORTED_VERSION, msg, ex);
@@ -133,22 +130,22 @@ public final class AsmClassParser {
 
         InsnList list = mn.instructions;
 
-        // Pass 1: assign an ordinal index to every "real" instruction and
-        // record where each label points (a label points to the next real
-        // instruction).
+        // 第一遍：为每条“真实”指令分配一个序号索引，并
+        // 记录每个标签指向的位置（标签指向下一条真实
+        // 指令）。
         Map<LabelNode, Integer> labelIndex = new HashMap<>();
         int count = 0;
         for (AbstractInsnNode n = list.getFirst(); n != null; n = n.getNext()) {
             if (n instanceof LabelNode label) {
                 labelIndex.put(label, count);
             } else if (n instanceof LineNumberNode || n instanceof FrameNode) {
-                // Pseudo-instructions: no bytecode, no index.
+                // 伪指令：没有字节码，也没有索引。
             } else {
                 count++;
             }
         }
 
-        // Pass 2: build immutable Insn models.
+        // 第二遍：构建不可变的 Insn 模型。
         List<Insn> insns = new ArrayList<>(count);
         int idx = 0;
         for (AbstractInsnNode n = list.getFirst(); n != null; n = n.getNext()) {
@@ -223,11 +220,11 @@ public final class AsmClassParser {
     }
 
     /**
-     * Confirm the parser's ASM backend supports a given class-file major
-     * version. Exposed so callers can pre-flight a jar before parsing.
+     * 确认解析器的 ASM 后端是否支持给定的类文件主版本号。
+     * 对外暴露，便于调用方在解析前预检某个 jar。
      *
-     * @param majorVersion the class-file major version
-     * @return {@code true} if supported by the bundled ASM
+     * @param majorVersion 类文件主版本号
+     * @return 若内置 ASM 支持则返回 {@code true}
      */
     public boolean supportsMajorVersion(int majorVersion) {
         return majorVersion <= Opcodes.V_PREVIEW;

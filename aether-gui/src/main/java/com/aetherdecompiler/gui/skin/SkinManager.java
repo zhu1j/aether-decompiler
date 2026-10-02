@@ -1,21 +1,20 @@
 /*
- * aether-decompiler — an independent, reusable JVM decompilation engine.
+ * aether-decompiler —— 一个独立、可复用的 JVM 反编译引擎。
  * Copyright 2026 Jerry Zhu (Zeek) <zhujiejava1@gmail.com>
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+ * 依据 Apache License, Version 2.0（下称“本许可证”）授权；
+ * 除非遵守本许可证，否则你不得使用本文件。
+ * 你可以在以下地址获取本许可证副本：
  *
  *     http://www.apache.org/licenses/LICENSE-2.0
  *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * 除非适用法律要求或书面同意，依据本许可证分发的软件
+ * 均按“原样（AS IS）”提供，不附带任何明示或默示的担保，
+ * 包括但不限于对适销性、特定用途适用性的担保。
+ * 关于本许可证下具体权限与限制的表述，请参见本许可证。
  *
  * @author Jerry Zhu (Zeek)
- * "Run the Code, Run the World!"
+ * “Run the Code, Run the World!”
  */
 package com.aetherdecompiler.gui.skin;
 
@@ -35,40 +34,38 @@ import java.util.Properties;
 import java.util.stream.Stream;
 
 /**
- * Discovers, holds, imports, and applies skins and backdrop images.
+ * 发现、持有、导入并应用皮肤与背景图片。
  *
- * <p>Two kinds of skin are supported with the same mechanism:</p>
+ * <p>用同一套机制支持两种皮肤：</p>
  * <ul>
- *   <li><strong>Built-in skins</strong> shipped as {@code /skins/*.css} on the
- *       classpath and registered in {@link #BUILTIN}.</li>
- *   <li><strong>Custom skins</strong> dropped by the user into
- *       {@code ~/.aether/skins/}: any {@code *.css} file, optionally accompanied
- *       by a {@code <name>.skin.properties} for metadata. No recompile, no
- *       registry edit — the directory is the extension point.</li>
+ *   <li><strong>内置皮肤</strong>，作为类路径上的 {@code /skins/*.css} 随附，
+ *       并在 {@link #BUILTIN} 中注册。</li>
+ *   <li><strong>自定义皮肤</strong>，由用户放入
+ *       {@code ~/.aether/skins/}：任意 {@code *.css} 文件，可选地伴随一个
+ *       {@code <name>.skin.properties} 作为元数据。无需重编译，无需改注册表
+ *       —— 目录就是扩展点。</li>
  * </ul>
  *
- * <p>Beyond dropping files by hand, the studio can also <em>import</em> them at
- * runtime: {@link #importSkin(Path)} copies a chosen {@code *.css} into the user
- * skin directory and reloads the catalogue, and {@link #importBackground(Path)}
- * copies a chosen image into the backdrop directory. Both are thin, honest file
- * operations — the directory remains the single source of truth.</p>
+ * <p>除了手动放置文件，工作台还可以在运行期<em>导入</em>它们：
+ * {@link #importSkin(Path)} 把选定的 {@code *.css} 复制到用户皮肤目录并重新
+ * 加载目录，{@link #importBackground(Path)} 把选定的图片复制到背景目录。二者
+ * 都是简单、诚实的文件操作 —— 目录始终是唯一事实来源。</p>
  *
- * <p>Story analogy: a wardrobe. The shop-bought outfits hang on one rail; the
- * tailor-made ones the owner drops in are hung on the other. Getting dressed
- * uses the same mirror either way.</p>
+ * <p>故事类比：一个衣柜。店里买来的衣服挂在一根杆上；主人放进去的定制款挂在
+ * 另一根杆上。无论怎样，穿衣照的还是同一面镜子。</p>
  *
  * @author Jerry Zhu (Zeek)
  */
 public final class SkinManager {
 
-    /** The shared layout stylesheet always applied beneath any skin. */
+    /** 始终在任何皮肤之下应用的共享布局样式表。 */
     public static final String BASE_CSS = "styles/base.css";
 
-    /** Image extensions accepted for imported backdrops. */
+    /** 导入背景所接受的图片扩展名。 */
     private static final List<String> IMAGE_EXT =
             List.of(".png", ".jpg", ".jpeg", ".gif", ".bmp", ".webp");
 
-    /** The built-in skin tuples: id, name, author, accent, bg, css resource. */
+    /** 内置皮肤元组：id、name、author、accent、bg、css 资源。 */
     private static final String[][] BUILTIN = {
             {"midnight-aether", "Midnight Aether", "Jerry Zhu (Zeek)", "#34e0c8", "#0b0f14", "skins/midnight-aether.css"},
             {"obsidian-amber", "Obsidian Amber", "Jerry Zhu (Zeek)", "#f5b544", "#14110c", "skins/obsidian-amber.css"},
@@ -81,16 +78,16 @@ public final class SkinManager {
     private final List<Skin> skins = new ArrayList<>();
 
     /**
-     * Build a manager, loading built-in skins and any user skins.
+     * 构建一个管理器，加载内置皮肤与任何用户皮肤。
      *
-     * @param userSkinDir the directory to scan for custom skins (may not exist)
+     * @param userSkinDir 用于扫描自定义皮肤的目录（可能不存在）
      */
     public SkinManager(Path userSkinDir) {
         this.userSkinDir = userSkinDir;
         reload();
     }
 
-    /** Rebuild the skin catalogue from built-ins plus the user skin directory. */
+    /** 由内置皮肤加上用户皮肤目录重建皮肤目录。 */
     public void reload() {
         skins.clear();
         loadBuiltin();
@@ -116,7 +113,7 @@ public final class SkinManager {
                     .sorted()
                     .forEach(this::addUserSkin);
         } catch (IOException ex) {
-            // A missing or unreadable user directory is not an error.
+            // 用户目录缺失或不可读不算错误。
         }
     }
 
@@ -131,7 +128,7 @@ public final class SkinManager {
         try {
             Skin skin = Skin.of("user-" + baseName, name, author, accent, bg,
                     cssFile.toUri().toURL(), false);
-            // Optional per-skin default backdrop declared in the metadata sidecar.
+            // 由元数据附属文件声明的可选逐皮肤默认背景。
             String background = meta.getProperty("background");
             if (background != null && !background.isBlank()) {
                 Path bgPath = cssFile.getParent().resolve(background.trim());
@@ -143,7 +140,7 @@ public final class SkinManager {
             }
             skins.add(skin);
         } catch (IOException ex) {
-            // Skip an unreadable skin file.
+            // 跳过无法读取的皮肤文件。
         }
     }
 
@@ -153,25 +150,24 @@ public final class SkinManager {
             try (InputStream in = Files.newInputStream(metaFile)) {
                 props.load(in);
             } catch (IOException ex) {
-                // Fall back to defaults.
+                // 回退到默认值。
             }
         }
         return props;
     }
 
-    // -------------------------------------------------------------------- import
+    // -------------------------------------------------------------------- 导入
 
     /**
-     * Import a {@code *.css} stylesheet as a custom skin.
+     * 把一个 {@code *.css} 样式表作为自定义皮肤导入。
      *
-     * <p>The file (and an optional {@code <name>.skin.properties} sidecar) is
-     * copied into the user skin directory, the catalogue is reloaded, and the
-     * resulting skin is returned so the caller can select it immediately. The
-     * user's original file is never modified.</p>
+     * <p>该文件（以及可选的 {@code <name>.skin.properties} 附属文件）会被复制到
+     * 用户皮肤目录，目录被重新加载，并返回所得的皮肤，以便调用方立即选中它。
+     * 用户的原始文件绝不被修改。</p>
      *
-     * @param source the chosen {@code *.css} file
-     * @return the registered custom skin
-     * @throws IOException if the file cannot be copied
+     * @param source 选定的 {@code *.css} 文件
+     * @return 已注册的自定义皮肤
+     * @throws IOException 若文件无法复制
      */
     public Skin importSkin(Path source) throws IOException {
         if (source == null || !Files.isRegularFile(source)) {
@@ -198,11 +194,11 @@ public final class SkinManager {
     }
 
     /**
-     * Import an image as a reusable backdrop.
+     * 把一张图片导入为可复用的背景。
      *
-     * @param source the chosen image file
-     * @return the stored backdrop path inside the backdrop directory
-     * @throws IOException if the file cannot be copied
+     * @param source 选定的图片文件
+     * @return 背景目录内已存储的背景路径
+     * @throws IOException 若文件无法复制
      */
     public Path importBackground(Path source) throws IOException {
         if (source == null || !Files.isRegularFile(source)) {
@@ -218,7 +214,7 @@ public final class SkinManager {
         return dest;
     }
 
-    /** @return whether a file name has a supported image extension */
+    /** @return 某个文件名是否具有受支持的图片扩展名 */
     public static boolean isImage(String fileName) {
         String lower = fileName.toLowerCase(Locale.ROOT);
         for (String ext : IMAGE_EXT) {
@@ -229,7 +225,7 @@ public final class SkinManager {
         return false;
     }
 
-    /** @return all backdrop images already stored in the backdrop directory */
+    /** @return 背景目录中已存储的全部背景图片 */
     public List<Path> backgrounds() {
         Path dir = defaultBackgroundDir();
         if (!Files.isDirectory(dir)) {
@@ -244,16 +240,16 @@ public final class SkinManager {
         }
     }
 
-    // -------------------------------------------------------------------- access
+    // -------------------------------------------------------------------- 访问
 
-    /** @return all discovered skins, built-ins first */
+    /** @return 发现的所有皮肤，内置的在前 */
     public List<Skin> all() {
         return Collections.unmodifiableList(skins);
     }
 
     /**
-     * @param id a skin id
-     * @return the matching skin, or {@code null}
+     * @param id 皮肤 id
+     * @return 匹配的皮肤，若无则返回 {@code null}
      */
     public Skin byId(String id) {
         for (Skin s : skins) {
@@ -264,16 +260,16 @@ public final class SkinManager {
         return null;
     }
 
-    /** @return the first built-in skin, used as the startup default */
+    /** @return 第一个内置皮肤，用作启动默认值 */
     public Skin defaultSkin() {
         return skins.isEmpty() ? null : skins.get(0);
     }
 
     /**
-     * Apply a skin to a scene: the shared base layout plus the skin stylesheet.
+     * 把一款皮肤应用到某个场景：共享的基础布局加上该皮肤样式表。
      *
-     * @param scene the scene to re-dress
-     * @param skin  the skin to apply
+     * @param scene 要换装的场景
+     * @param skin  要应用的皮肤
      */
     public void apply(Scene scene, Skin skin) {
         scene.getStylesheets().clear();
@@ -286,42 +282,41 @@ public final class SkinManager {
         }
     }
 
-    // --------------------------------------------------------------------- paths
+    // --------------------------------------------------------------------- 路径
 
-    /** @return the conventional skin root, {@code ~/.aether} */
+    /** @return 约定的皮肤根目录 {@code ~/.aether} */
     public static Path aetherHome() {
         return Path.of(System.getProperty("user.home", "."), ".aether");
     }
 
-    /** @return the conventional user skin directory, {@code ~/.aether/skins} */
+    /** @return 约定的用户皮肤目录 {@code ~/.aether/skins} */
     public static Path defaultUserSkinDir() {
         return aetherHome().resolve("skins");
     }
 
-    /** @return the conventional backdrop directory, {@code ~/.aether/backgrounds} */
+    /** @return 约定的背景目录 {@code ~/.aether/backgrounds} */
     public static Path defaultBackgroundDir() {
         return aetherHome().resolve("backgrounds");
     }
 
-    /** @return the studio preferences file, {@code ~/.aether/studio.properties} */
+    /** @return 工作台偏好文件 {@code ~/.aether/studio.properties} */
     public static Path studioPrefsFile() {
         return aetherHome().resolve("studio.properties");
     }
 
     /**
-     * Ensure the user skin directory exists so the "open skins folder" affordance
-     * always has somewhere to point.
+     * 确保用户皮肤目录存在，使“打开皮肤文件夹”这一交互始终有处可指。
      *
-     * @return the user skin directory
+     * @return 用户皮肤目录
      */
     public static Path ensureUserSkinDir() {
         return ensureDir(defaultUserSkinDir());
     }
 
     /**
-     * Ensure the backdrop directory exists.
+     * 确保背景目录存在。
      *
-     * @return the backdrop directory
+     * @return 背景目录
      */
     public static Path ensureBackgroundDir() {
         return ensureDir(defaultBackgroundDir());
@@ -331,12 +326,12 @@ public final class SkinManager {
         try {
             Files.createDirectories(dir);
         } catch (IOException ex) {
-            // Non-fatal: the picker simply lists built-in skins only.
+            // 非致命：选择器只会列出内置皮肤。
         }
         return dir;
     }
 
-    // ------------------------------------------------------------------- helpers
+    // ------------------------------------------------------------------- 辅助
 
     private static String stripExtension(String fileName) {
         int dot = fileName.lastIndexOf('.');

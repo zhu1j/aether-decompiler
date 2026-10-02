@@ -1,21 +1,20 @@
 /*
- * aether-decompiler — an independent, reusable JVM decompilation engine.
+ * aether-decompiler —— 一个独立、可复用的 JVM 反编译引擎。
  * Copyright 2026 Jerry Zhu (Zeek) <zhujiejava1@gmail.com>
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+ * 依据 Apache License, Version 2.0（下称“本许可证”）授权；
+ * 除非遵守本许可证，否则你不得使用本文件。
+ * 你可以在以下地址获取本许可证副本：
  *
  *     http://www.apache.org/licenses/LICENSE-2.0
  *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * 除非适用法律要求或书面同意，依据本许可证分发的软件
+ * 均按“原样（AS IS）”提供，不附带任何明示或默示的担保，
+ * 包括但不限于对适销性、特定用途适用性的担保。
+ * 关于本许可证下具体权限与限制的表述，请参见本许可证。
  *
  * @author Jerry Zhu (Zeek)
- * "Run the Code, Run the World!"
+ * “Run the Code, Run the World!”
  */
 package com.aetherdecompiler.cli;
 
@@ -39,17 +38,14 @@ import java.nio.file.Path;
 import java.util.List;
 
 /**
- * The command-line application of aether-decompiler.
+ * aether-decompiler 的命令行应用。
  *
- * <p>Pure caller of the kernel: it discovers plugins through the SPI host, opens
- * a class source, drives the engine, and writes rendered output. The kernel and
- * plugins contain no reference to this class; deleting it would not disturb
- * them. This is the concrete evidence for the "CLI is only an application"
- * principle.</p>
+ * <p>它是内核的纯调用方：通过 SPI 宿主发现插件、打开类来源、驱动引擎并写出渲染结果。
+ * 内核与插件都不引用本类；删掉它也不会影响它们。这正是“CLI 只是一个应用”
+ * 原则的具体佐证。</p>
  *
- * <p>Story analogy: the showroom at the factory gate. Customers describe what
- * they want; the showroom relays it to the factory. The factory does not know a
- * showroom exists.</p>
+ * <p>故事类比：工厂门口的展厅。顾客描述想要什么，展厅再转达给工厂；
+ * 工厂并不知道展厅的存在。</p>
  *
  * @author Jerry Zhu (Zeek)
  */
@@ -59,12 +55,12 @@ public final class Main {
     }
 
     /**
-     * Entry point.
+     * 入口点。
      *
-     * @param args {@code <input.jar|dir> [--outputdir <dir>] [--quiet] [--banner]}
+     * @param args {@code <输入.jar|目录> [--outputdir <目录>] [--quiet] [--banner]}
      */
     public static void main(String[] args) {
-        // The author's signature, printed by default on every run.
+        // 作者的署名，默认在每次运行时打印。
         System.out.println(AetherVersion.banner());
         System.out.println("  " + AetherVersion.PROJECT + " \u00b7 " + AetherVersion.LICENSE
                 + " \u00b7 " + AetherVersion.AUTHOR_EMAIL);
@@ -114,13 +110,13 @@ public final class Main {
             System.out.println();
         }
 
-        // Observable pipeline: print every stage event (hard constraint #8).
+        // 可观测的流水线：打印每个阶段事件（硬性约束 #8）。
         if (!quiet) {
             engine.eventBus().subscribe((AetherEvent e) ->
                     System.out.println("  [event] " + e));
         }
 
-        // Find a source plugin that can open the input.
+        // 找到一个能够打开该输入的来源插件。
         ClassSourcePlugin sourcePlugin = host.classSources().stream()
                 .filter(p -> p.id().equals("source.jar"))
                 .findFirst()

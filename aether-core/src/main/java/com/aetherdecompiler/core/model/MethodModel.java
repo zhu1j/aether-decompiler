@@ -1,21 +1,20 @@
 /*
- * aether-decompiler — an independent, reusable JVM decompilation engine.
+ * aether-decompiler —— 一个独立、可复用的 JVM 反编译引擎。
  * Copyright 2026 Jerry Zhu (Zeek) <zhujiejava1@gmail.com>
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+ * 依据 Apache License, Version 2.0（下称“本许可证”）授权；
+ * 除非遵守本许可证，否则你不得使用本文件。
+ * 你可以在以下地址获取本许可证副本：
  *
  *     http://www.apache.org/licenses/LICENSE-2.0
  *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * 除非适用法律要求或书面同意，依据本许可证分发的软件
+ * 均按“原样（AS IS）”提供，不附带任何明示或默示的担保，
+ * 包括但不限于对适销性、特定用途适用性的担保。
+ * 关于本许可证下具体权限与限制的表述，请参见本许可证。
  *
  * @author Jerry Zhu (Zeek)
- * "Run the Code, Run the World!"
+ * “Run the Code, Run the World!”
  */
 package com.aetherdecompiler.core.model;
 
@@ -26,15 +25,14 @@ import java.util.List;
 import java.util.Objects;
 
 /**
- * An immutable method model.
+ * 不可变的方法模型。
  *
- * <p>Captures everything the kernel needs to reason about a method without
- * touching ASM again: access flags, name, descriptor, the linear instruction
- * list, the exception table, and the frame size hints. Methods with no code
- * (abstract / native) have an empty instruction list.</p>
+ * <p>它捕获内核推理一个方法所需的全部信息，而无需再次接触 ASM：访问标志、
+ * 名称、描述符、线性指令列表、异常表以及帧大小提示。没有代码的方法
+ * （抽象/原生）拥有空指令列表。</p>
  *
- * <p>Story analogy: a single recipe card — its title, its ingredient list in
- * order, and the "if the pan catches fire" contingency lines at the bottom.</p>
+ * <p>故事类比：一张食谱卡 —— 它的标题、按顺序排列的配料表，以及底部的
+ * “万一锅着火”的应急行。</p>
  *
  * @author Jerry Zhu (Zeek)
  */
@@ -50,14 +48,14 @@ public final class MethodModel implements IRObject {
     private final int maxLocals;
 
     /**
-     * @param access          raw access flags
-     * @param name            the method name
-     * @param descriptor      the method descriptor, e.g. {@code "(I)J"}
-     * @param signature       the generic signature, or {@code null}
-     * @param instructions    the immutable instruction list (never {@code null})
-     * @param tryCatchEntries the immutable exception table (never {@code null})
-     * @param maxStack        the max operand-stack depth, or {@code -1} if abstract
-     * @param maxLocals       the max local-variable slots, or {@code -1} if abstract
+     * @param access          原始访问标志
+     * @param name            方法名
+     * @param descriptor      方法描述符，例如 {@code "(I)J"}
+     * @param signature       泛型签名，或 {@code null}
+     * @param instructions    不可变指令列表（永不为 {@code null}）
+     * @param tryCatchEntries 不可变异常表（永不为 {@code null}）
+     * @param maxStack        最大操作数栈深度；若为抽象方法则为 {@code -1}
+     * @param maxLocals       最大局部变量槽数；若为抽象方法则为 {@code -1}
      */
     public MethodModel(int access, String name, String descriptor, String signature,
                        List<Insn> instructions, List<TryCatchEntry> tryCatchEntries,
@@ -72,52 +70,52 @@ public final class MethodModel implements IRObject {
         this.maxLocals = maxLocals;
     }
 
-    /** @return the raw access flags */
+    /** @return 原始访问标志 */
     public int access() {
         return access;
     }
 
-    /** @return the method name */
+    /** @return 方法名 */
     public String name() {
         return name;
     }
 
-    /** @return the method descriptor */
+    /** @return 方法描述符 */
     public String descriptor() {
         return descriptor;
     }
 
-    /** @return the generic signature, or {@code null} */
+    /** @return 泛型签名，或 {@code null} */
     public String signature() {
         return signature;
     }
 
-    /** @return the immutable instruction list */
+    /** @return 不可变指令列表 */
     public List<Insn> instructions() {
         return instructions;
     }
 
-    /** @return the immutable exception table */
+    /** @return 不可变异常表 */
     public List<TryCatchEntry> tryCatchEntries() {
         return tryCatchEntries;
     }
 
-    /** @return the max operand-stack depth, or {@code -1} */
+    /** @return 最大操作数栈深度，或 {@code -1} */
     public int maxStack() {
         return maxStack;
     }
 
-    /** @return the max local-variable slots, or {@code -1} */
+    /** @return 最大局部变量槽数，或 {@code -1} */
     public int maxLocals() {
         return maxLocals;
     }
 
-    /** @return {@code true} if this method carries no code */
+    /** @return 若该方法不含代码则返回 {@code true} */
     public boolean isAbstractOrNative() {
         return AccessFlags.isAbstract(access) || (access & AccessFlags.NATIVE) != 0;
     }
 
-    /** @return the fully-qualified identifier {@code name + descriptor} */
+    /** @return 完全限定标识符 {@code name + descriptor} */
     public String id() {
         return name + descriptor;
     }

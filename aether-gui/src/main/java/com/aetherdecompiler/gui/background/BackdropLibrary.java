@@ -1,21 +1,20 @@
 /*
- * aether-decompiler — an independent, reusable JVM decompilation engine.
+ * aether-decompiler —— 一个独立、可复用的 JVM 反编译引擎。
  * Copyright 2026 Jerry Zhu (Zeek) <zhujiejava1@gmail.com>
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+ * 依据 Apache License, Version 2.0（下称“本许可证”）授权；
+ * 除非遵守本许可证，否则你不得使用本文件。
+ * 你可以在以下地址获取本许可证副本：
  *
  *     http://www.apache.org/licenses/LICENSE-2.0
  *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * 除非适用法律要求或书面同意，依据本许可证分发的软件
+ * 均按“原样（AS IS）”提供，不附带任何明示或默示的担保，
+ * 包括但不限于对适销性、特定用途适用性的担保。
+ * 关于本许可证下具体权限与限制的表述，请参见本许可证。
  *
  * @author Jerry Zhu (Zeek)
- * "Run the Code, Run the World!"
+ * “Run the Code, Run the World!”
  */
 package com.aetherdecompiler.gui.background;
 
@@ -30,23 +29,21 @@ import java.util.List;
 import java.util.stream.Stream;
 
 /**
- * The user's backdrop library, persisted under {@code ~/.aether/backgrounds}.
+ * 用户的背景库，持久化于 {@code ~/.aether/backgrounds} 之下。
  *
- * <p>The library accepts three kinds of import, all reduced to a
- * {@link Backdrop}:</p>
+ * <p>该库接受三种导入，最终都归约为一个 {@link Backdrop}：</p>
  * <ul>
- *   <li>a bare image or video file;</li>
- *   <li>a Wallpaper&nbsp;Engine project folder ({@code project.json} + media +
- *       preview), copied wholesale so its relative references keep working;</li>
- *   <li>any previously stored entry is re-listed on the next launch.</li>
+ *   <li>一个裸的图片或视频文件；</li>
+ *   <li>一个 Wallpaper&nbsp;Engine 工程文件夹（{@code project.json} + 媒体 +
+ *       预览图），整体复制，使其相对引用继续有效；</li>
+ *   <li>任何此前存储的条目都会在下次启动时被重新列出。</li>
  * </ul>
  *
- * <p>Keeping every import on disk (rather than only in memory) means a chosen
- * wallpaper survives restarts for free, and the folder stays a plain, browsable
- * place the user can also manage by hand.</p>
+ * <p>把每一次导入都落到磁盘上（而非只在内存中），意味着选定的壁纸无需额外
+ * 代价就能在重启后保留，且该文件夹始终是一个普通、可浏览、用户也能手动管理
+ * 的地方。</p>
  *
- * <p>Story analogy: the film archive next to the projector — whatever you load
- * today is still on the shelf tomorrow.</p>
+ * <p>故事类比：放映机旁的胶片档案 —— 你今天装入的内容，明天仍在架上。</p>
  *
  * @author Jerry Zhu (Zeek)
  */
@@ -55,41 +52,41 @@ public final class BackdropLibrary {
     private final Path root;
 
     /**
-     * @param root the library directory (created on demand)
+     * @param root 库目录（按需创建）
      */
     public BackdropLibrary(Path root) {
         this.root = root;
     }
 
-    /** @return the conventional library directory, {@code ~/.aether/backgrounds} */
+    /** @return 约定的库目录 {@code ~/.aether/backgrounds} */
     public static Path defaultRoot() {
         return SkinManager.defaultBackgroundDir();
     }
 
     /**
-     * Ensure the library directory exists.
+     * 确保库目录存在。
      *
-     * @return the library directory
+     * @return 库目录
      */
     public Path ensureRoot() {
         try {
             Files.createDirectories(root);
         } catch (IOException ex) {
-            // Non-fatal: imports will surface their own error.
+            // 非致命：导入会各自暴露自己的错误。
         }
         return root;
     }
 
-    /** @return the library root directory */
+    /** @return 库根目录 */
     public Path root() {
         return root;
     }
 
     /**
-     * List every backdrop in the library: Wallpaper Engine project folders first,
-     * then loose media files, each sorted by name.
+     * 列出库中的每张背景：先是 Wallpaper Engine 工程文件夹，
+     * 再是零散的媒体文件，各自按名称排序。
      *
-     * @return the discovered backdrops (never {@code null})
+     * @return 发现的背景（永不为 {@code null}）
      */
     public List<Backdrop> list() {
         List<Backdrop> projects = new ArrayList<>();
@@ -104,7 +101,7 @@ public final class BackdropLibrary {
                         try {
                             projects.add(WallpaperProject.load(p).toBackdrop());
                         } catch (IOException ex) {
-                            // Skip an unreadable project.
+                            // 跳过无法读取的工程。
                         }
                     }
                 } else if (Backdrop.isMedia(p.getFileName().toString())
@@ -114,18 +111,18 @@ public final class BackdropLibrary {
                 }
             });
         } catch (IOException ex) {
-            // Return whatever we have.
+            // 返回已有的内容。
         }
         projects.addAll(loose);
         return projects;
     }
 
     /**
-     * Import a bare image or video file into the library.
+     * 把一个裸的图片或视频文件导入库中。
      *
-     * @param source the chosen media file
-     * @return the stored backdrop
-     * @throws IOException if the file is not media or cannot be copied
+     * @param source 选定的媒体文件
+     * @return 已存储的背景
+     * @throws IOException 若该文件不是媒体或无法复制
      */
     public Backdrop importMedia(Path source) throws IOException {
         if (source == null || !Files.isRegularFile(source)) {
@@ -142,14 +139,14 @@ public final class BackdropLibrary {
     }
 
     /**
-     * Import a Wallpaper Engine project folder into the library.
+     * 把一个 Wallpaper Engine 工程文件夹导入库中。
      *
-     * <p>The whole folder is copied under the library so that the descriptor's
-     * relative media and preview references remain valid.</p>
+     * <p>整个文件夹会被复制到库下，从而使描述符中的相对媒体与预览引用
+     * 保持有效。</p>
      *
-     * @param projectDir the folder containing {@code project.json}
-     * @return the stored backdrop
-     * @throws IOException if the folder is not a project or cannot be copied
+     * @param projectDir 包含 {@code project.json} 的文件夹
+     * @return 已存储的背景
+     * @throws IOException 若该文件夹不是工程或无法复制
      */
     public Backdrop importProject(Path projectDir) throws IOException {
         if (!WallpaperProject.isProject(projectDir)) {
@@ -159,18 +156,18 @@ public final class BackdropLibrary {
         ensureRoot();
         Path dest = root.resolve(projectDir.getFileName().toString());
         copyTree(projectDir, dest);
-        // Re-parse from the stored copy so paths point at the library.
+        // 从已存储的副本重新解析，使路径指向库。
         WallpaperProject stored = WallpaperProject.load(dest);
         return stored.toBackdrop();
     }
 
     /**
-     * Import whichever kind of source a path is: a Wallpaper Engine project
-     * folder, or a loose media file.
+     * 导入某个路径所对应的任一来源：一个 Wallpaper Engine 工程
+     * 文件夹，或一个零散的媒体文件。
      *
-     * @param source a project folder or a media file
-     * @return the stored backdrop
-     * @throws IOException if the source is neither, or copying fails
+     * @param source 工程文件夹或媒体文件
+     * @return 已存储的背景
+     * @throws IOException 若该来源两者皆非，或复制失败
      */
     public Backdrop importAny(Path source) throws IOException {
         if (WallpaperProject.isProject(source)) {
@@ -180,24 +177,24 @@ public final class BackdropLibrary {
     }
 
     /**
-     * Remove a stored entry (a loose file or a whole project folder).
+     * 移除一条已存储条目（一个零散文件或整个工程文件夹）。
      *
-     * @param media the media path of a stored backdrop
-     * @throws IOException if deletion fails
+     * @param media 已存储背景的媒体路径
+     * @throws IOException 若删除失败
      */
     public void remove(Path media) throws IOException {
         if (media == null) {
             return;
         }
-        // A loose file is removed directly; a project's file is removed with its
-        // containing folder when that folder sits under the library root.
+        // 零散文件直接删除；工程的媒体文件在其所在文件夹位于库根之下时，
+        // 连同其所在文件夹一并删除。
         Path parent = media.getParent();
         if (parent != null && parent.startsWith(root) && !parent.equals(root)
                 && WallpaperProject.isProject(parent)) {
             deleteTree(parent);
         } else {
             Files.deleteIfExists(media);
-            // Also drop an orphan preview next to it.
+            // 同时删除它旁边的孤立预览图。
             String name = media.getFileName().toString();
             int dot = name.lastIndexOf('.');
             Path sibling = media.resolveSibling("preview.jpg");

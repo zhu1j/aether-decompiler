@@ -1,62 +1,57 @@
 /*
- * aether-decompiler — an independent, reusable JVM decompilation engine.
+ * aether-decompiler —— 一个独立、可复用的 JVM 反编译引擎。
  * Copyright 2026 Jerry Zhu (Zeek) <zhujiejava1@gmail.com>
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+ * 依据 Apache License, Version 2.0（下称“本许可证”）授权；
+ * 除非遵守本许可证，否则你不得使用本文件。
+ * 你可以在以下地址获取本许可证副本：
  *
  *     http://www.apache.org/licenses/LICENSE-2.0
  *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * 除非适用法律要求或书面同意，依据本许可证分发的软件
+ * 均按“原样（AS IS）”提供，不附带任何明示或默示的担保，
+ * 包括但不限于对适销性、特定用途适用性的担保。
+ * 关于本许可证下具体权限与限制的表述，请参见本许可证。
  *
  * @author Jerry Zhu (Zeek)
- * "Run the Code, Run the World!"
+ * “Run the Code, Run the World!”
  */
 package com.aetherdecompiler.api;
 
 /**
- * A read-mostly view of the host handed to every plugin at activation time.
+ * 在激活时交给每个插件的、以读为主的宿主视图。
  *
- * <p>This is the ONLY door a plugin uses to reach host services. It carries the
- * configuration snapshot, the shared option registry, the event bus, and a
- * resolver for reading further class bytes on demand. By routing everything
- * through one narrow interface, the host can evolve its internals without
- * breaking plugins.</p>
+ * <p>这是插件用来访问宿主服务的唯一入口。它携带配置快照、共享选项注册表、
+ * 事件总线，以及一个用于按需读取更多类字节的解析器。通过把一切路由到一个
+ * 狭窄接口，宿主可以在不破坏插件的前提下演进其内部实现。</p>
  *
- * <p>Story analogy: the visitor's badge and intercom at the factory gate. The
- * badge says what the visitor may see; the intercom lets them ask the front
- * desk. The visitor never wanders the plant unescorted.</p>
+ * <p>故事类比：工厂门口的访客证与对讲机。访客证说明访客可以看什么；
+ * 对讲机让他们向前台询问。访客从不无陪同地游荡厂区。</p>
  *
  * @author Jerry Zhu (Zeek)
  */
 public interface PluginContext {
 
     /**
-     * @return the immutable configuration snapshot for this run
+     * @return 本次运行不可变的配置快照
      */
     Options options();
 
     /**
-     * @return the shared option registry, so a plugin may publish its own options
+     * @return 共享的选项注册表，以便插件发布自己的选项
      */
     OptionRegistry optionRegistry();
 
     /**
-     * @return the event bus, so a plugin may publish or subscribe to events
+     * @return 事件总线，以便插件发布或订阅事件
      */
     EventBus eventBus();
 
     /**
-     * Resolve class bytes by internal name using whatever {@link ClassSource}
-     * the host is currently reading from.
+     * 使用宿主当前正在读取的 {@link ClassSource}，按内部名解析类字节。
      *
-     * @param internalName the internal binary name, e.g. {@code com/foo/Bar}
-     * @return the class bytes, or {@code null} if not resolvable
+     * @param internalName 内部二进制名，例如 {@code com/foo/Bar}
+     * @return 类字节；若无法解析则为 {@code null}
      */
     byte[] resolveClassBytes(String internalName);
 }

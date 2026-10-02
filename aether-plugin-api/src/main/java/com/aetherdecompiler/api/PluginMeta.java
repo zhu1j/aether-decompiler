@@ -1,36 +1,34 @@
 /*
- * aether-decompiler — an independent, reusable JVM decompilation engine.
+ * aether-decompiler —— 一个独立、可复用的 JVM 反编译引擎。
  * Copyright 2026 Jerry Zhu (Zeek) <zhujiejava1@gmail.com>
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+ * 依据 Apache License, Version 2.0（下称“本许可证”）授权；
+ * 除非遵守本许可证，否则你不得使用本文件。
+ * 你可以在以下地址获取本许可证副本：
  *
  *     http://www.apache.org/licenses/LICENSE-2.0
  *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * 除非适用法律要求或书面同意，依据本许可证分发的软件
+ * 均按“原样（AS IS）”提供，不附带任何明示或默示的担保，
+ * 包括但不限于对适销性、特定用途适用性的担保。
+ * 关于本许可证下具体权限与限制的表述，请参见本许可证。
  *
  * @author Jerry Zhu (Zeek)
- * "Run the Code, Run the World!"
+ * “Run the Code, Run the World!”
  */
 package com.aetherdecompiler.api;
 
 import java.util.Objects;
 
 /**
- * Immutable, declarative metadata describing a plugin.
+ * 描述插件的不可变、声明式元数据。
  *
- * <p>Metadata lets the host list, order, and version-check plugins without
- * instantiating their heavy code. The {@code apiVersion} field is the seam that
- * enforces the backwards-compatibility promise: the host refuses to activate a
- * plugin built against a newer, incompatible plugin API major.</p>
+ * <p>元数据让宿主无需实例化插件的重型代码就能列出、排序并做版本检查。
+ * {@code apiVersion} 字段是强制向后兼容承诺的接缝：宿主拒绝激活一个针对
+ * 更新的、不兼容的插件 API 主版本构建的插件。</p>
  *
- * <p>Story analogy: the nameplate and electrical rating stamped on every
- * appliance. The factory checks the rating before plugging anything in.</p>
+ * <p>故事类比：铭刻在每件电器上的铭牌与电气额定值。工厂在插电之前先核对
+ * 额定值。</p>
  *
  * @author Jerry Zhu (Zeek)
  */
@@ -52,39 +50,39 @@ public final class PluginMeta {
     }
 
     /**
-     * @param id          unique plugin id, e.g. {@code "render.dot"}
-     * @param displayName human-readable name
-     * @param version     the plugin's own version
-     * @param apiVersion  the aether plugin-API version it targets
-     * @param vendor      the author/vendor string
-     * @return a new metadata record
+     * @param id          唯一插件 id，例如 {@code "render.dot"}
+     * @param displayName 人类可读名称
+     * @param version     插件自身的版本
+     * @param apiVersion  它所针对的 aether 插件 API 版本
+     * @param vendor      作者/供应商字符串
+     * @return 新的元数据记录
      */
     public static PluginMeta of(String id, String displayName, String version,
                                 String apiVersion, String vendor) {
         return new PluginMeta(id, displayName, version, apiVersion, vendor);
     }
 
-    /** @return the unique plugin id */
+    /** @return 唯一插件 id */
     public String id() {
         return id;
     }
 
-    /** @return the human-readable name */
+    /** @return 人类可读名称 */
     public String displayName() {
         return displayName;
     }
 
-    /** @return the plugin's own version */
+    /** @return 插件自身的版本 */
     public String version() {
         return version;
     }
 
-    /** @return the targeted plugin-API version */
+    /** @return 所针对的插件 API 版本 */
     public String apiVersion() {
         return apiVersion;
     }
 
-    /** @return the author/vendor string */
+    /** @return 作者/供应商字符串 */
     public String vendor() {
         return vendor;
     }

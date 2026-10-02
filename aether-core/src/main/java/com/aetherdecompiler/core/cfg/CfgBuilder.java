@@ -1,21 +1,20 @@
 /*
- * aether-decompiler — an independent, reusable JVM decompilation engine.
+ * aether-decompiler —— 一个独立、可复用的 JVM 反编译引擎。
  * Copyright 2026 Jerry Zhu (Zeek) <zhujiejava1@gmail.com>
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+ * 依据 Apache License, Version 2.0（下称“本许可证”）授权；
+ * 除非遵守本许可证，否则你不得使用本文件。
+ * 你可以在以下地址获取本许可证副本：
  *
  *     http://www.apache.org/licenses/LICENSE-2.0
  *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * 除非适用法律要求或书面同意，依据本许可证分发的软件
+ * 均按“原样（AS IS）”提供，不附带任何明示或默示的担保，
+ * 包括但不限于对适销性、特定用途适用性的担保。
+ * 关于本许可证下具体权限与限制的表述，请参见本许可证。
  *
  * @author Jerry Zhu (Zeek)
- * "Run the Code, Run the World!"
+ * “Run the Code, Run the World!”
  */
 package com.aetherdecompiler.core.cfg;
 
@@ -33,30 +32,28 @@ import java.util.List;
 import java.util.Set;
 
 /**
- * Builds a {@link ControlFlowGraph} from an instruction list.
+ * 从指令列表构建 {@link ControlFlowGraph}。
  *
- * <p>Algorithm: leaders-first block splitting. A new basic block starts at the
- * method entry, at every branch target, and at the instruction after any branch
- * (including the instructions after a switch and after each exception handler
- * entry). This classic O(n) pass yields a maximal single-entry block partition
- * without consulting a library.</p>
+ * <p>算法：基本块前导点优先切分。新的基本块始于方法入口、每个分支目标，
+ * 以及任何分支之后的指令（包括 switch 之后的指令以及每个异常处理器入口之后的
+ * 指令）。这个经典的 O(n) 遍历可在不借助任何库的情况下，得到一个最大的
+ * 单入口基本块划分。</p>
  *
- * <p>Story analogy: parcelling a long ribbon into segments. You cut at the
- * start, at every junction where traffic can enter, and just after every
- * junction where traffic can leave — the result is segments no one can enter
- * midway.</p>
+ * <p>故事类比：把一条长绸带裁成若干段。你在起点处剪，在每个可以进入的
+ * 交汇处剪，并在每个可以离开的交汇处之后立刻剪 —— 结果是一段段没人能
+ * 从中途进入的片段。</p>
  *
  * @author Jerry Zhu (Zeek)
  */
 public final class CfgBuilder {
 
     /**
-     * Build the CFG for one method.
+     * 为单个方法构建 CFG。
      *
-     * @param owner  the owning class (for diagnostics)
-     * @param method the method model
-     * @return the control-flow graph
-     * @throws AetherException if a jump targets an instruction that does not exist
+     * @param owner  所属类（用于诊断）
+     * @param method 方法模型
+     * @return 控制流图
+     * @throws AetherException 若某个跳转指向不存在的指令
      */
     public ControlFlowGraph build(ClassModel owner, MethodModel method) {
         List<Insn> insns = method.instructions();
@@ -65,7 +62,7 @@ public final class CfgBuilder {
             return new ControlFlowGraph(owner.name(), method.id(), insns, List.of());
         }
 
-        // 1. Identify leaders: entries of basic blocks.
+        // 1. 找出前导点：各基本块的入口。
         boolean[] isLeader = new boolean[n];
         isLeader[0] = true;
         for (int i = 0; i < n; i++) {
@@ -77,8 +74,8 @@ public final class CfgBuilder {
                                 "Jump at insn " + i + " targets invalid index " + target
                                         + " in " + owner.name() + "." + method.id());
                     }
-                    // A target equal to n means "fall off the end": legal; it
-                    // simply ends the method and creates no new block.
+                    // 目标等于 n 表示“越过末尾”：这是合法的；它
+                    // 只是结束方法，并不产生新的块。
                     if (target < n) {
                         isLeader[target] = true;
                     }
@@ -88,15 +85,15 @@ public final class CfgBuilder {
                 }
             }
         }
-        // Exception handler entries are leaders too.
+        // 异常处理器入口同样是前导点。
         for (TryCatchEntry tce : method.tryCatchEntries()) {
             if (tce.handlerIndex() >= 0 && tce.handlerIndex() < n) {
                 isLeader[tce.handlerIndex()] = true;
             }
         }
 
-        // 2. Cut the instruction stream into blocks at the leaders.
-        List<int[]> ranges = new ArrayList<>(); // [firstInsn, lastInsn]
+        // 2. 在前导点处把指令流切分为基本块。
+        List<int[]> ranges = new ArrayList<>(); // [起始指令, 结束指令]
         int start = 0;
         for (int i = 1; i < n; i++) {
             if (isLeader[i]) {
@@ -106,7 +103,7 @@ public final class CfgBuilder {
         }
         ranges.add(new int[]{start, n - 1});
 
-        // 3. Map instruction index -> block id.
+        // 3. 建立“指令索引 -> 块 id”的映射。
         int[] blockOfInsn = new int[n];
         for (int b = 0; b < ranges.size(); b++) {
             int[] r = ranges.get(b);
@@ -115,7 +112,7 @@ public final class CfgBuilder {
             }
         }
 
-        // 4. Compute successors for each block from its last instruction.
+        // 4. 依据每个块最后一条指令计算其后继。
         List<BasicBlock> blocks = new ArrayList<>(ranges.size());
         for (int b = 0; b < ranges.size(); b++) {
             int[] r = ranges.get(b);
@@ -129,7 +126,7 @@ public final class CfgBuilder {
                         succ.add(blockOfInsn[target]);
                     }
                 }
-                // Conditional branches fall through; unconditional ones do not.
+                // 条件分支会“贯穿直落”；无条件分支不会。
                 if (isConditional(tail.opcode()) && last + 1 < n) {
                     succ.add(blockOfInsn[last + 1]);
                 }
@@ -141,8 +138,8 @@ public final class CfgBuilder {
                     new ArrayList<>(succ), List.of(), b == 0));
         }
 
-        // 5. Attach exception edges: for each protected range, its blocks gain
-        //    an edge to the handler's block.
+        // 5. 附加异常边：对每个受保护区间，其基本块
+        //    获得一条指向处理器块的边。
         List<List<Integer>> exceptionSucc = new ArrayList<>();
         for (int b = 0; b < blocks.size(); b++) {
             exceptionSucc.add(new ArrayList<>());
@@ -174,14 +171,14 @@ public final class CfgBuilder {
     }
 
     private boolean isConditional(int opcode) {
-        // 0x99..0xA6 are the two-operand integer/reference conditional jumps,
-        // 0xC6/0xC7 are ifnull/ifnonnull. goto/jsr are unconditional.
+        // 0x99..0xA6 是双操作数的整数/引用条件跳转，
+        // 0xC6/0xC7 是 ifnull/ifnonnull。goto/jsr 是无条件跳转。
         return (opcode >= 0x99 && opcode <= 0xA6) || opcode == 0xC6 || opcode == 0xC7;
     }
 
     private boolean isTerminal(int opcode) {
-        // return family (0xAC..0xB1), athrow (0xBF), goto/jsr and switch are
-        // handled by the branch path; ret (0xA9) also ends a block.
+        // return 家族（0xAC..0xB1）、athrow（0xBF）、goto/jsr 以及 switch 由
+        // 分支路径处理；ret（0xA9）同样会结束一个块。
         return (opcode >= 0xAC && opcode <= 0xB1) || opcode == 0xBF || opcode == 0xA9;
     }
 }

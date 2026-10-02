@@ -1,21 +1,20 @@
 /*
- * aether-decompiler — an independent, reusable JVM decompilation engine.
+ * aether-decompiler —— 一个独立、可复用的 JVM 反编译引擎。
  * Copyright 2026 Jerry Zhu (Zeek) <zhujiejava1@gmail.com>
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+ * 依据 Apache License, Version 2.0（下称“本许可证”）授权；
+ * 除非遵守本许可证，否则你不得使用本文件。
+ * 你可以在以下地址获取本许可证副本：
  *
  *     http://www.apache.org/licenses/LICENSE-2.0
  *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * 除非适用法律要求或书面同意，依据本许可证分发的软件
+ * 均按“原样（AS IS）”提供，不附带任何明示或默示的担保，
+ * 包括但不限于对适销性、特定用途适用性的担保。
+ * 关于本许可证下具体权限与限制的表述，请参见本许可证。
  *
  * @author Jerry Zhu (Zeek)
- * "Run the Code, Run the World!"
+ * “Run the Code, Run the World!”
  */
 package com.aetherdecompiler.plugins.source;
 
@@ -31,16 +30,13 @@ import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
 
 /**
- * A {@link ClassSource} backed by a jar/zip archive.
+ * 由 jar/zip 归档支撑的 {@link ClassSource}。
  *
- * <p>The archive's central directory is scanned once to build a name index;
- * individual entries are read on demand. This directly realises the
- * progressive/lazy-loading constraint: opening a large jar never decompresses
- * every class.</p>
+ * <p>归档的中央目录被扫描一次以构建名称索引；各个条目按需读取。这直接实现了
+ * 渐进/惰性加载约束：打开一个大 jar 绝不会解压每一个类。</p>
  *
- * <p>Story analogy: a sealed shipping container with a printed manifest. You
- * read the manifest (the index) immediately; you open one crate inside only
- * when you actually need its contents.</p>
+ * <p>故事类比：一个贴有清单的密封货运集装箱。你立即读取清单（索引）；
+ * 只有当真的需要其中内容时，才打开里面的一只板条箱。</p>
  *
  * @author Jerry Zhu (Zeek)
  */
@@ -50,7 +46,7 @@ public final class JarClassSource implements ClassSource {
     private final List<String> names = new ArrayList<>();
 
     /**
-     * @param zip an opened zip/jar file
+     * @param zip 一个已打开的 zip/jar 文件
      */
     public JarClassSource(ZipFile zip) {
         this.zip = zip;
@@ -92,7 +88,7 @@ public final class JarClassSource implements ClassSource {
         try {
             zip.close();
         } catch (IOException ex) {
-            // Closing a read-only archive cannot fail meaningfully.
+            // 关闭一个只读归档不会有实质性的失败。
         }
     }
 }

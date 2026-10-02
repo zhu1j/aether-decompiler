@@ -1,35 +1,33 @@
 /*
- * aether-decompiler — an independent, reusable JVM decompilation engine.
+ * aether-decompiler —— 一个独立、可复用的 JVM 反编译引擎。
  * Copyright 2026 Jerry Zhu (Zeek) <zhujiejava1@gmail.com>
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+ * 依据 Apache License, Version 2.0（下称“本许可证”）授权；
+ * 除非遵守本许可证，否则你不得使用本文件。
+ * 你可以在以下地址获取本许可证副本：
  *
  *     http://www.apache.org/licenses/LICENSE-2.0
  *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * 除非适用法律要求或书面同意，依据本许可证分发的软件
+ * 均按“原样（AS IS）”提供，不附带任何明示或默示的担保，
+ * 包括但不限于对适销性、特定用途适用性的担保。
+ * 关于本许可证下具体权限与限制的表述，请参见本许可证。
  */
 
 /*
- * base.css — the shared layout skeleton, applied beneath every skin.
+ * base.css —— 共享布局骨架，应用在每款皮肤之下。
  *
- * This file owns STRUCTURE and the design-token defaults only: spacing,
- * panel composition, and fallback colours via JavaFX looked-up colour tokens
- * (-fx-* custom properties). Every skin overrides those colour tokens, so a
- * skin never has to re-declare layout. This is what makes a new look a
- * one-file, zero-recompile operation.
+ * 本文件只负责结构与设计令牌默认值：间距、面板构成，以及通过 JavaFX
+ * looked-up 颜色令牌（-fx-* 自定义属性）给出的回退颜色。每款皮肤覆盖这些
+ * 颜色令牌，因此皮肤永远不必重新声明布局。这正是让一套新外观成为
+ * 单文件、零重编译操作的原因。
  *
  * @author Jerry Zhu (Zeek)
- * "Run the Code, Run the World!"
+ * “Run the Code, Run the World!”
  */
 
 .root {
-    /* Default (Midnight Aether) token set; each skin overrides these. */
+    /* 默认（Midnight Aether）令牌集；每款皮肤覆盖这些。 */
     -ae-bg:         #0b0f14;
     -ae-bg-alt:     #10161d;
     -ae-panel:      #0f151c;
@@ -43,7 +41,7 @@
     -fx-font-size:  13px;
 }
 
-/* ----------------------------------------------------------------- top bar */
+/* ----------------------------------------------------------------- 顶栏 */
 
 .app-root {
     -fx-background-color: -ae-bg;
@@ -112,7 +110,7 @@
     -fx-text-fill: -ae-text;
 }
 
-/* --------------------------------------------------------------- navigation */
+/* --------------------------------------------------------------- 导航栏 */
 
 .nav,
 .aside {
@@ -169,7 +167,7 @@
     -fx-margin: 4 12 4 12;
 }
 
-/* ---------------------------------------------------------------- workspace */
+/* ---------------------------------------------------------------- 工作区 */
 
 .workspace {
     -fx-background-color: -ae-bg;
@@ -212,7 +210,7 @@
     -fx-padding: 0 1 0 1;
 }
 
-/* ------------------------------------------------------------- code editor */
+/* ------------------------------------------------------------- 代码编辑器 */
 
 .code-editor,
 .code-area {
@@ -237,7 +235,7 @@
     -fx-background-color: derive(-ae-bg-alt, 6%);
 }
 
-/* Syntax token classes produced by CodeEditorView. */
+/* 由 CodeEditorView 生成的语法令牌类。 */
 .keyword    { -fx-fill: -ae-accent-2; -fx-font-weight: bold; }
 .string     { -fx-fill: -ae-warn; }
 .comment    { -fx-fill: -ae-text-dim; -fx-font-style: italic; }
@@ -248,7 +246,7 @@
 .bracket    { -fx-fill: -ae-text; }
 .semicolon  { -fx-fill: -ae-text-dim; }
 
-/* ---------------------------------------------------------------- bytecode */
+/* ---------------------------------------------------------------- 字节码 */
 
 .bytecode-view,
 .bytecode-list {
@@ -317,7 +315,7 @@
     -fx-fill: -ae-warn;
 }
 
-/* ------------------------------------------------------------------ events */
+/* ------------------------------------------------------------------ 事件 */
 
 .events-view,
 .events-list {
@@ -333,7 +331,7 @@
     -fx-padding: 1 12 1 12;
 }
 
-/* --------------------------------------------------------------- inspector */
+/* --------------------------------------------------------------- 检查器 */
 
 .inspector-view {
     -fx-padding: 12;
@@ -376,7 +374,7 @@
     -fx-border-width: 1 0 0 0;
 }
 
-/* -------------------------------------------------------------- status bar */
+/* -------------------------------------------------------------- 状态栏 */
 
 .event-dock {
     -fx-background-color: -ae-panel;
@@ -408,7 +406,7 @@
     -fx-background-color: -ae-border;
 }
 
-/* ---------------------------------------------------------------- scrollbar */
+/* ---------------------------------------------------------------- 滚动条 */
 
 .scroll-bar {
     -fx-background-color: -ae-bg;
@@ -433,7 +431,7 @@
     -fx-background-color: -ae-border;
 }
 
-/* ------------------------------------------------------- custom backdrop */
+/* ------------------------------------------------------- 自定义背景 */
 
 .root-stack {
     -fx-background-color: -ae-bg;
@@ -448,8 +446,10 @@
     -fx-opacity: 0;
 }
 
-/* A backdrop image is semitransparent by design; a themed scrim behind the
-   work area keeps code legible no matter how bright the image is. */
+/*
+ * 背景图按设计是半透明的；工作区之后的主题化遮罩让代码在任何
+ * 明亮程度的图片上都保持可读。
+ */
 .bg-active .bg-scrim {
     -fx-opacity: 0.28;
 }
@@ -480,7 +480,7 @@
     -fx-border-color: -ae-border;
 }
 
-/* Backdrop controls in the top bar. */
+/* 顶栏中的背景控制项。 */
 .opacity-label {
     -fx-text-fill: -ae-text-dim;
     -fx-font-size: 11px;
@@ -498,7 +498,7 @@
     -fx-background-color: -ae-accent;
 }
 
-/* Backdrop controls: a compact popover dialog. */
+/* 背景控制项：一个紧凑的弹出对话框。 */
 .backdrop-dialog {
     -fx-background-color: -ae-bg-alt;
     -fx-border-color: -ae-accent;
@@ -521,7 +521,7 @@
     -fx-font-size: 11px;
 }
 
-/* Backdrop gallery: thumbnails of every stored wallpaper. */
+/* 背景图库：每张已存储壁纸的缩略图。 */
 .gallery {
     -fx-pref-height: 220;
     -fx-background-color: -ae-bg;
@@ -562,7 +562,7 @@
     -fx-font-size: 10px;
 }
 
-/* A toolbar button that carries a small dropdown arrow. */
+/* 一个带小下拉箭头的工具栏按钮。 */
 .tool-button.menu {
     -fx-padding: 6 10 6 12;
 }

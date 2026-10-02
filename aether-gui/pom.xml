@@ -26,7 +26,7 @@
     </properties>
 
     <dependencies>
-        <!-- Kernel + official plugins: the GUI is a pure caller. -->
+        <!-- 内核 + 官方插件：GUI 是纯调用方。 -->
         <dependency>
             <groupId>com.aetherdecompiler</groupId>
             <artifactId>aether-core</artifactId>
@@ -42,7 +42,7 @@
             <version>${project.version}</version>
         </dependency>
 
-        <!-- JavaFX (desktop only). -->
+        <!-- JavaFX（仅桌面）。 -->
         <dependency>
             <groupId>org.openjfx</groupId>
             <artifactId>javafx-controls</artifactId>
@@ -53,14 +53,14 @@
             <artifactId>javafx-graphics</artifactId>
             <version>${javafx.version}</version>
         </dependency>
-        <!-- Video backdrops / Wallpaper Engine video wallpapers. -->
+        <!-- 视频背景 / Wallpaper Engine 视频壁纸。 -->
         <dependency>
             <groupId>org.openjfx</groupId>
             <artifactId>javafx-media</artifactId>
             <version>${javafx.version}</version>
         </dependency>
 
-        <!-- RichTextFX: the code editor of the studio. -->
+        <!-- RichTextFX：工作台的代码编辑器。 -->
         <dependency>
             <groupId>org.fxmisc.richtext</groupId>
             <artifactId>richtextfx</artifactId>

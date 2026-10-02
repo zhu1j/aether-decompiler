@@ -1,21 +1,20 @@
 /*
- * aether-decompiler — an independent, reusable JVM decompilation engine.
+ * aether-decompiler —— 一个独立、可复用的 JVM 反编译引擎。
  * Copyright 2026 Jerry Zhu (Zeek) <zhujiejava1@gmail.com>
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+ * 依据 Apache License, Version 2.0（下称“本许可证”）授权；
+ * 除非遵守本许可证，否则你不得使用本文件。
+ * 你可以在以下地址获取本许可证副本：
  *
  *     http://www.apache.org/licenses/LICENSE-2.0
  *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * 除非适用法律要求或书面同意，依据本许可证分发的软件
+ * 均按“原样（AS IS）”提供，不附带任何明示或默示的担保，
+ * 包括但不限于对适销性、特定用途适用性的担保。
+ * 关于本许可证下具体权限与限制的表述，请参见本许可证。
  *
  * @author Jerry Zhu (Zeek)
- * "Run the Code, Run the World!"
+ * “Run the Code, Run the World!”
  */
 package com.aetherdecompiler.gui.view;
 
@@ -33,23 +32,22 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
- * The Java source view: a RichTextFX {@link CodeArea} with line numbers and
- * syntax highlighting, plus a click callback for three-view linkage.
+ * Java 源码视图：一个带行号与语法高亮的 RichTextFX {@link CodeArea}，
+ * 外加一个用于三视图联动的点击回调。
  *
- * <p>This view renders whatever text the kernel/plugin produced; it is purely an
- * application-layer widget. It contains no decompilation logic.</p>
+ * <p>该视图渲染内核/插件产出的任意文本；它纯粹是一个应用层部件，
+ * 不含任何反编译逻辑。</p>
  *
- * <p>Story analogy: the sheet of paper held up to the light. The paper shows the
- * text; the printing press that made it is elsewhere.</p>
+ * <p>故事类比：举向灯光的那张纸。纸显示文本；印刷它的印刷机在别处。</p>
  *
  * @author Jerry Zhu (Zeek)
  */
 public final class CodeEditorView extends VBox {
 
-    /** Callback invoked with the 1-based line the user clicked. */
+    /** 以用户点击的、从 1 开始的行号调用的回调。 */
     public interface LineClickListener {
         /**
-         * @param line the 1-based line number
+         * @param line 从 1 开始的行号
          */
         void onLine(int line);
     }
@@ -91,7 +89,7 @@ public final class CodeEditorView extends VBox {
     private LineClickListener lineClickListener;
 
     /**
-     * Create the editor view.
+     * 创建编辑器视图。
      */
     public CodeEditorView() {
         getStyleClass().add("code-editor");
@@ -112,7 +110,7 @@ public final class CodeEditorView extends VBox {
     }
 
     /**
-     * @param text the source text to display (may be {@code null})
+     * @param text 要显示的源码文本（可为 {@code null}）
      */
     public void setSource(String text) {
         codeArea.replaceText(text == null ? "" : text);
@@ -121,9 +119,9 @@ public final class CodeEditorView extends VBox {
     }
 
     /**
-     * Highlight a line by selecting it (used for three-view linkage).
+     * 通过选中某一行来高亮它（用于三视图联动）。
      *
-     * @param oneBasedLine the 1-based line to focus
+     * @param oneBasedLine 要聚焦的、从 1 开始的行号
      */
     public void focusLine(int oneBasedLine) {
         int para = Math.max(0, Math.min(oneBasedLine - 1, codeArea.getParagraphs().size() - 1));
@@ -134,7 +132,7 @@ public final class CodeEditorView extends VBox {
     }
 
     /**
-     * @param listener the click listener to register
+     * @param listener 要注册的点击监听器
      */
     public void setLineClickListener(LineClickListener listener) {
         this.lineClickListener = listener;

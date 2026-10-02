@@ -1,58 +1,55 @@
 /*
- * aether-decompiler — an independent, reusable JVM decompilation engine.
+ * aether-decompiler —— 一个独立、可复用的 JVM 反编译引擎。
  * Copyright 2026 Jerry Zhu (Zeek) <zhujiejava1@gmail.com>
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+ * 依据 Apache License, Version 2.0（下称“本许可证”）授权；
+ * 除非遵守本许可证，否则你不得使用本文件。
+ * 你可以在以下地址获取本许可证副本：
  *
  *     http://www.apache.org/licenses/LICENSE-2.0
  *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * 除非适用法律要求或书面同意，依据本许可证分发的软件
+ * 均按“原样（AS IS）”提供，不附带任何明示或默示的担保，
+ * 包括但不限于对适销性、特定用途适用性的担保。
+ * 关于本许可证下具体权限与限制的表述，请参见本许可证。
  *
  * @author Jerry Zhu (Zeek)
- * "Run the Code, Run the World!"
+ * “Run the Code, Run the World!”
  */
 package com.aetherdecompiler.api;
 
 /**
- * Immutable, project-wide identity constants.
+ * 不可变的、项目级的身份常量。
  *
- * <p>This class is the single source of truth for the human identity of the
- * project. Every application layer (CLI banner, GUI about-box, IDE plugin)
- * reads its attribution from here so the author's signature is never
- * duplicated or allowed to drift.</p>
+ * <p>本类是项目人类身份的唯一事实来源。每个应用层（CLI Banner、GUI 关于框、
+ * IDE 插件）都从这里读取署名，因此作者的签名从不重复，也不会漂移。</p>
  *
- * <p>Story analogy: this is the maker's stamp pressed into every brick the
- * factory ships — the stamp is part of the product, not decoration.</p>
+ * <p>故事类比：这是按进工厂运出的每一块砖上的制作者印记 —— 印记是产品的
+ * 一部分，而非装饰。</p>
  *
  * @author Jerry Zhu (Zeek)
  */
 public final class AetherVersion {
 
-    /** Semantic version of the engine. MAJOR is deliberately held stable. */
+    /** 引擎的语义化版本。MAJOR 刻意保持稳定。 */
     public static final String VERSION = "0.1.0";
 
-    /** Project name. */
+    /** 项目名称。 */
     public static final String PROJECT = "aether-decompiler";
 
-    /** The author's English name. */
+    /** 作者的英文名。 */
     public static final String AUTHOR = "Jerry Zhu";
 
-    /** The author's pen name / handle. */
+    /** 作者的笔名 / 昵称。 */
     public static final String AUTHOR_PEN_NAME = "Zeek";
 
-    /** Public contact address of the author. */
+    /** 作者的公开联系邮箱。 */
     public static final String AUTHOR_EMAIL = "zhujiejava1@gmail.com";
 
-    /** The author's motto, printed by every application entry point. */
+    /** 作者的座右铭，由每个应用入口打印。 */
     public static final String MOTTO = "Run the Code, Run the World!";
 
-    /** SPDX license identifier. */
+    /** SPDX 许可证标识符。 */
     public static final String LICENSE = "Apache-2.0";
 
     private AetherVersion() {
@@ -60,18 +57,18 @@ public final class AetherVersion {
     }
 
     /**
-     * A one-line, ready-to-print attribution string.
+     * 一行、可直接打印的署名字符串。
      *
-     * @return e.g. {@code "aether-decompiler 0.1.0 — by Jerry Zhu (Zeek)"}
+     * @return 例如 {@code "aether-decompiler 0.1.0 — by Jerry Zhu (Zeek)"}
      */
     public static String attribution() {
         return PROJECT + " " + VERSION + " \u2014 by " + AUTHOR + " (" + AUTHOR_PEN_NAME + ")";
     }
 
     /**
-     * The full, multi-line banner used by the CLI on startup.
+     * CLI 启动时使用的完整多行 Banner。
      *
-     * @return a banner string embedding the project identity and motto
+     * @return 一个嵌入项目身份与座右铭的 Banner 字符串
      */
     public static String banner() {
         return ""

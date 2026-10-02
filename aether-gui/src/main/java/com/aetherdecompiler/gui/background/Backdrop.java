@@ -1,21 +1,20 @@
 /*
- * aether-decompiler — an independent, reusable JVM decompilation engine.
+ * aether-decompiler —— 一个独立、可复用的 JVM 反编译引擎。
  * Copyright 2026 Jerry Zhu (Zeek) <zhujiejava1@gmail.com>
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+ * 依据 Apache License, Version 2.0（下称“本许可证”）授权；
+ * 除非遵守本许可证，否则你不得使用本文件。
+ * 你可以在以下地址获取本许可证副本：
  *
  *     http://www.apache.org/licenses/LICENSE-2.0
  *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * 除非适用法律要求或书面同意，依据本许可证分发的软件
+ * 均按“原样（AS IS）”提供，不附带任何明示或默示的担保，
+ * 包括但不限于对适销性、特定用途适用性的担保。
+ * 关于本许可证下具体权限与限制的表述，请参见本许可证。
  *
  * @author Jerry Zhu (Zeek)
- * "Run the Code, Run the World!"
+ * “Run the Code, Run the World!”
  */
 package com.aetherdecompiler.gui.background;
 
@@ -24,17 +23,15 @@ import java.util.Locale;
 import java.util.Set;
 
 /**
- * An immutable description of one backdrop the studio can paint behind the work
- * area: its title, its medium (still image or video), the media file, and an
- * optional preview thumbnail.
+ * 对工作台可在工作区之后绘制的一张背景的不可变描述：它的标题、介质
+ * （静止图像或视频）、媒体文件，以及可选的预览缩略图。
  *
- * <p>A backdrop may come from a bare image/video file or from a
- * Wallpaper&nbsp;Engine project folder (see {@link WallpaperProject}); this type
- * is the common shape both are normalised into, so the studio never has to care
- * which kind of source it was.</p>
+ * <p>一张背景既可以来自裸的图片/视频文件，也可以来自 Wallpaper&nbsp;Engine
+ * 工程文件夹（见 {@link WallpaperProject}）；本类型是二者被归一化成的共同
+ * 形态，因此工作台永远不必关心它的来源是哪一种。</p>
  *
- * <p>Story analogy: a single "film" in the projector's library — regardless of
- * whether it was hand-drawn on a slide or shot on video.</p>
+ * <p>故事类比：放映机片库里的一卷“胶片” —— 无论它是手绘在幻灯片上，
+ * 还是用摄影机拍摄的。</p>
  *
  * @author Jerry Zhu (Zeek)
  */
@@ -58,18 +55,18 @@ public final class Backdrop {
     }
 
     /**
-     * @param title   display title
-     * @param media   the media file
-     * @param preview an optional thumbnail (may be {@code null})
-     * @return a backdrop whose kind is inferred from the media extension
+     * @param title   显示标题
+     * @param media   媒体文件
+     * @param preview 可选缩略图（可为 {@code null}）
+     * @return 一种类型由媒体扩展名推断得出的背景
      */
     public static Backdrop of(String title, Path media, Path preview) {
         return new Backdrop(title, kindOf(media), media, preview);
     }
 
     /**
-     * @param path a file whose extension identifies the media kind
-     * @return the kind implied by the extension, or {@link BackdropKind#NONE}
+     * @param path 扩展名可标识媒体类型的文件
+     * @return 由扩展名推断出的类型，或 {@link BackdropKind#NONE}
      */
     public static BackdropKind kindOf(Path path) {
         if (path == null) {
@@ -87,17 +84,17 @@ public final class Backdrop {
         return BackdropKind.NONE;
     }
 
-    /** @return whether an extension is a supported backdrop image */
+    /** @return 某个扩展名是否为受支持的背景图片 */
     public static boolean isImage(String name) {
         return IMAGE_EXT.contains(suffix(name));
     }
 
-    /** @return whether an extension is a supported backdrop video */
+    /** @return 某个扩展名是否为受支持的背景视频 */
     public static boolean isVideo(String name) {
         return VIDEO_EXT.contains(suffix(name));
     }
 
-    /** @return whether an extension is any supported backdrop media */
+    /** @return 某个扩展名是否为任意受支持的背景媒体 */
     public static boolean isMedia(String name) {
         return isImage(name) || isVideo(name);
     }
@@ -108,27 +105,27 @@ public final class Backdrop {
         return dot < 0 ? "" : lower.substring(dot);
     }
 
-    /** @return the display title */
+    /** @return 显示标题 */
     public String title() {
         return title;
     }
 
-    /** @return the media kind */
+    /** @return 媒体类型 */
     public BackdropKind kind() {
         return kind;
     }
 
-    /** @return the media file */
+    /** @return 媒体文件 */
     public Path media() {
         return media;
     }
 
-    /** @return the thumbnail, or {@code null} when none is available */
+    /** @return 缩略图；若无则返回 {@code null} */
     public Path preview() {
         return preview;
     }
 
-    /** @return whether this backdrop is a video */
+    /** @return 该背景是否为视频 */
     public boolean isVideo() {
         return kind == BackdropKind.VIDEO;
     }

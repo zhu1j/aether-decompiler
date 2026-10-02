@@ -1,21 +1,20 @@
 /*
- * aether-decompiler — an independent, reusable JVM decompilation engine.
+ * aether-decompiler —— 一个独立、可复用的 JVM 反编译引擎。
  * Copyright 2026 Jerry Zhu (Zeek) <zhujiejava1@gmail.com>
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+ * 依据 Apache License, Version 2.0（下称“本许可证”）授权；
+ * 除非遵守本许可证，否则你不得使用本文件。
+ * 你可以在以下地址获取本许可证副本：
  *
  *     http://www.apache.org/licenses/LICENSE-2.0
  *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * 除非适用法律要求或书面同意，依据本许可证分发的软件
+ * 均按“原样（AS IS）”提供，不附带任何明示或默示的担保，
+ * 包括但不限于对适销性、特定用途适用性的担保。
+ * 关于本许可证下具体权限与限制的表述，请参见本许可证。
  *
  * @author Jerry Zhu (Zeek)
- * "Run the Code, Run the World!"
+ * “Run the Code, Run the World!”
  */
 package com.aetherdecompiler.gui;
 
@@ -90,44 +89,38 @@ import java.util.Properties;
 import java.util.function.Consumer;
 
 /**
- * The Aether Decompiler Studio window.
+ * Aether Decompiler Studio 窗口。
  *
- * <p>This is the application-layer composition root for the desktop studio. It
- * owns the {@link DecompilerEngine}, the {@link PluginHost}, and the widgets that
- * render the engine's output, and it wires the three-view linkage: clicking a
- * source line highlights the corresponding bytecode row and CFG block.</p>
+ * <p>这是桌面工作台的应用层组装根。它持有 {@link DecompilerEngine}、
+ * {@link PluginHost} 以及渲染引擎输出的各个部件，并接通三视图联动：点击某一行
+ * 源码会高亮对应的字节码行与 CFG 块。</p>
  *
- * <p>It is a pure caller: every decompilation step goes through the public
- * kernel/plugin API, so it could be replaced by the CLI or a future IDE plug-in
- * without touching the engine.</p>
+ * <p>它是纯调用方：每一步反编译都走公开的内核/插件 API，因此可以替换为 CLI
+ * 或未来的 IDE 插件，而无需改动引擎。</p>
  *
- * <p>The window is a backdrop-aware shell. A custom background — a still image
- * <em>or</em> a looping video, including a wall of the kind exported by
- * Wallpaper&nbsp;Engine — is painted as a deliberately translucent layer behind
- * the work area, with user-adjustable opacity, blur and fill modes. Because the
- * shell is CSS-driven, a custom {@code *.css} stylesheet and a custom backdrop
- * can both be imported at runtime without recompiling anything.</p>
+ * <p>本窗口是一个感知背景的外壳。自定义背景 —— 静止图像<em>或</em>循环视频，
+ * 包括 Wallpaper&nbsp;Engine 导出的那类壁纸 —— 会作为一层刻意半透明的图层
+ * 绘制在工作区之后，并带有用户可调的透明度、模糊与填充模式。由于外壳由 CSS
+ * 驱动，自定义 {@code *.css} 样式表与自定义背景都可以在运行期导入，
+ * 而无需重新编译任何东西。</p>
  *
- * <h2>Starting the studio</h2>
- * <p>The canonical entry point is {@link AetherLauncher}, <em>not</em> this
- * class. This class extends {@link Application}; when JavaFX is supplied on the
- * classpath (as a plain fat jar does) the JVM refuses to start an
- * {@code Application} subclass directly and aborts with
- * "JavaFX runtime components are missing". {@code AetherLauncher} is a plain class
- * whose only job is to call {@code launch(...)}, which is the supported way to
- * start a classpath-packaged JavaFX app. Run the jar, or use the provided
- * {@code run-gui} scripts.</p>
+ * <h2>启动工作台</h2>
+ * <p>规范入口点是 {@link AetherLauncher}，<em>而非</em>本类。本类继承自
+ * {@link Application}；当 JavaFX 是通过类路径提供的（就像普通 fat jar 那样）
+ * 时，JVM 拒绝直接启动一个 {@code Application} 子类，并以
+ * “JavaFX runtime components are missing”中止。{@code AetherLauncher} 是一个
+ * 普通类，它唯一的职责就是调用 {@code launch(...)}，这是启动以类路径打包的
+ * JavaFX 应用所支持的方式。运行该 jar，或使用随附的 {@code run-gui} 脚本。</p>
  *
- * <p>Story analogy: the studio itself. The presses (kernel) and the parts
- * suppliers (plugins) are delivered and installed; the studio arranges them into
- * a room a person can actually walk through and work in — and hang whatever
- * painting or film they like on the back wall.</p>
+ * <p>故事类比：工作台本身。印刷机（内核）与零件供应商（插件）都已交付并安装；
+ * 工作台把它们布置成一间人可以真正走进去并工作的房间 —— 并可以在后墙上
+ * 挂上任意喜欢的画作或影片。</p>
  *
  * @author Jerry Zhu (Zeek)
  */
 public final class AetherGuiApp extends Application {
 
-    /** Backdrop opacity presets used for the fill-mode combo. */
+    /** 用于填充模式下拉框的背景透明度预设。 */
     private static final String FILL_STRETCH = "拉伸填充";
     private static final String FILL_FIT = "等比适应";
 
@@ -149,7 +142,7 @@ public final class AetherGuiApp extends Application {
     private final ProgressBar progress = new ProgressBar(0);
     private final Label statusLabel = new Label("就绪");
 
-    // Backdrop layers.
+    // 背景层。
     private final StackPane rootStack = new StackPane();
     private final StackPane mediaHolder = new StackPane();
     private final ImageView bgImage = new ImageView();
@@ -196,7 +189,7 @@ public final class AetherGuiApp extends Application {
                 "studio ready \u2014 " + AetherVersion.attribution(), null));
     }
 
-    // --------------------------------------------------------------- backdrop
+    // --------------------------------------------------------------- 背景
 
     private Region buildBackdropLayer() {
         bgImage.setSmooth(true);
@@ -276,7 +269,7 @@ public final class AetherGuiApp extends Application {
             try {
                 videoPlayer.stop();
             } catch (RuntimeException ignored) {
-                // A media player that never started has nothing to stop.
+                // 从未启动过的媒体播放器没有什么可停止的。
             }
             videoPlayer.dispose();
             videoPlayer = null;
@@ -295,7 +288,7 @@ public final class AetherGuiApp extends Application {
         }
     }
 
-    // ------------------------------------------------------------------- prefs
+    // ------------------------------------------------------------------- 偏好
 
     private void loadPrefs() {
         Properties props = readPrefs();
@@ -337,7 +330,7 @@ public final class AetherGuiApp extends Application {
             try (InputStream in = Files.newInputStream(prefs)) {
                 props.load(in);
             } catch (IOException ex) {
-                // Ignore a corrupt prefs file; defaults apply.
+                // 忽略损坏的偏好文件；使用默认值。
             }
         }
         return props;
@@ -362,7 +355,7 @@ public final class AetherGuiApp extends Application {
                 props.store(out, "aether-decompiler studio preferences \u2014 Jerry Zhu (Zeek)");
             }
         } catch (IOException ex) {
-            // Persisting prefs is best-effort.
+            // 持久化偏好是尽力而为的。
         }
     }
 
@@ -378,7 +371,7 @@ public final class AetherGuiApp extends Application {
         }
     }
 
-    // ------------------------------------------------------------------ top bar
+    // ------------------------------------------------------------------ 顶栏
 
     private Region buildTopBar() {
         Label mark = new Label("\u25c8");
@@ -425,7 +418,7 @@ public final class AetherGuiApp extends Application {
         return bar;
     }
 
-    // -------------------------------------------------------- backdrop dialog
+    // -------------------------------------------------------- 背景对话框
 
     private void openBackdropDialog() {
         Stage dialog = new Stage();
@@ -555,7 +548,7 @@ public final class AetherGuiApp extends Application {
         }
     }
 
-    // ---------------------------------------------------------------- workspace
+    // ---------------------------------------------------------------- 工作区
 
     private Region buildWorkspace() {
         VBox nav = new VBox(classTree);
@@ -610,7 +603,7 @@ public final class AetherGuiApp extends Application {
         return new VBox(eventBox, status);
     }
 
-    // -------------------------------------------------------------------- skins
+    // -------------------------------------------------------------------- 皮肤
 
     private void applySkin(Skin skin) {
         skinManager.apply(scene, skin);
@@ -619,7 +612,7 @@ public final class AetherGuiApp extends Application {
         }
     }
 
-    // -------------------------------------------------------------- open source
+    // -------------------------------------------------------------- 打开来源
 
     private void openJarDialog() {
         FileChooser chooser = new FileChooser();
@@ -677,7 +670,7 @@ public final class AetherGuiApp extends Application {
         return host.classSources().isEmpty() ? null : host.classSources().get(0);
     }
 
-    // --------------------------------------------------------------- decompile
+    // --------------------------------------------------------------- 反编译
 
     private void openClass(String simpleOrInternal) {
         if (currentSource == null) {
@@ -712,12 +705,12 @@ public final class AetherGuiApp extends Application {
     private void renderClass(DecompilerEngine.DecompileResult result) {
         StringBuilder sb = new StringBuilder();
         sb.append("// ").append(result.model().dottedName()).append('\n');
-        sb.append("// class file major version ").append(result.model().majorVersion()).append('\n');
+        sb.append("// 类文件主版本 ").append(result.model().majorVersion()).append('\n');
         sb.append("// ").append(AetherVersion.PROJECT).append(" ").append(AetherVersion.VERSION)
                 .append(" \u2014 ").append(AetherVersion.AUTHOR)
                 .append(" (").append(AetherVersion.AUTHOR_PEN_NAME).append(")\n\n");
         for (MethodModel m : result.model().methods()) {
-            sb.append("    // method: ").append(m.name()).append(m.descriptor()).append('\n');
+            sb.append("    // 方法： ").append(m.name()).append(m.descriptor()).append('\n');
         }
         codeView.setSource(sb.toString());
 
@@ -776,7 +769,7 @@ public final class AetherGuiApp extends Application {
         thread.start();
     }
 
-    // ------------------------------------------------------------ linkage
+    // ------------------------------------------------------------ 联动
 
     private void onSourceLineClicked(int line) {
         if (currentResult == null || currentResult.cfgs().isEmpty()) {
@@ -794,7 +787,7 @@ public final class AetherGuiApp extends Application {
             try {
                 currentSource.close();
             } catch (RuntimeException ignored) {
-                // Closing a source that is already gone is not an error.
+                // 关闭一个已经不存在的来源不算错误。
             }
             currentSource = null;
         }
@@ -819,7 +812,7 @@ public final class AetherGuiApp extends Application {
     }
 
     /**
-     * A combo-box cell that paints a two-colour swatch for a skin.
+     * 一个为皮肤绘制双色色板的组合框单元格。
      *
      * @author Jerry Zhu (Zeek)
      */
@@ -848,7 +841,7 @@ public final class AetherGuiApp extends Application {
     }
 
     /**
-     * A gallery cell showing a backdrop's thumbnail, title and kind.
+     * 一个图库单元格，展示背景的缩略图、标题与类型。
      *
      * @author Jerry Zhu (Zeek)
      */
@@ -881,7 +874,7 @@ public final class AetherGuiApp extends Application {
                         thumb.setImage(img);
                     }
                 } catch (IOException ignored) {
-                    // Leave the placeholder frame.
+                    // 留出占位帧。
                 }
             }
 

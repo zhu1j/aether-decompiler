@@ -1,21 +1,20 @@
 /*
- * aether-decompiler — an independent, reusable JVM decompilation engine.
+ * aether-decompiler —— 一个独立、可复用的 JVM 反编译引擎。
  * Copyright 2026 Jerry Zhu (Zeek) <zhujiejava1@gmail.com>
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+ * 依据 Apache License, Version 2.0（下称“本许可证”）授权；
+ * 除非遵守本许可证，否则你不得使用本文件。
+ * 你可以在以下地址获取本许可证副本：
  *
  *     http://www.apache.org/licenses/LICENSE-2.0
  *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * 除非适用法律要求或书面同意，依据本许可证分发的软件
+ * 均按“原样（AS IS）”提供，不附带任何明示或默示的担保，
+ * 包括但不限于对适销性、特定用途适用性的担保。
+ * 关于本许可证下具体权限与限制的表述，请参见本许可证。
  *
  * @author Jerry Zhu (Zeek)
- * "Run the Code, Run the World!"
+ * “Run the Code, Run the World!”
  */
 package com.aetherdecompiler.gui.skin;
 
@@ -23,25 +22,23 @@ import java.net.URL;
 import java.util.Objects;
 
 /**
- * An immutable description of a visual skin.
+ * 对一款视觉皮肤的不可变描述。
  *
- * <p>A skin is a pure application-layer concept: it is a stylesheet plus
- * metadata, and optionally a default backdrop image shown behind the workspace.
- * It never touches the kernel, the plugins, or the engine, so adding a
- * look-and-feel is a zero-risk, zero-recompile operation for third parties.</p>
+ * <p>皮肤是纯应用层概念：它是一张样式表加上元数据，并可选择性地附带一张显示
+ * 在工作区之后的默认背景图。它绝不触碰内核、插件或引擎，因此为第三方添加一套
+ * 外观是零风险、零重编译的操作。</p>
  *
- * <p>The backdrop image is deliberately stored as a descriptor (URL + opacity)
- * rather than being rendered here: the skin says <em>what</em> the look is, and
- * the application decides <em>how</em> to paint it (as a translucent layer).</p>
+ * <p>背景图刻意以描述符（URL + 透明度）形式保存，而不是在此渲染：皮肤说明
+ * 外观<em>是什么</em>，而应用决定<em>如何</em>绘制它（作为一层半透明图层）。</p>
  *
- * <p>Story analogy: a set of interchangeable seat covers for the same car. The
- * engine, the wheels, and the wiring are untouched; only the look changes.</p>
+ * <p>故事类比：同一辆车可互换的一套座椅套。引擎、车轮与线路原封不动；
+ * 只有外观改变。</p>
  *
  * @author Jerry Zhu (Zeek)
  */
 public final class Skin {
 
-    /** The opacity used for an imported backdrop when none is specified. */
+    /** 导入背景时若未指定透明度，则使用该默认值。 */
     public static final double DEFAULT_BACKGROUND_OPACITY = 0.35;
 
     private final String id;
@@ -76,14 +73,14 @@ public final class Skin {
     }
 
     /**
-     * @param id      the stable skin id
-     * @param name    the display name
-     * @param author  the author string
-     * @param accent  the accent colour used for the picker swatch
-     * @param bg      the background colour used for the picker swatch
-     * @param cssUrl  the stylesheet URL
-     * @param builtin whether this ships with the application
-     * @return a new skin descriptor with no default backdrop
+     * @param id      稳定的皮肤 id
+     * @param name    显示名称
+     * @param author  作者字符串
+     * @param accent  用于选择器色板的强调色
+     * @param bg      用于选择器色板的背景色
+     * @param cssUrl  样式表 URL
+     * @param builtin 是否为随应用内置
+     * @return 一个没有默认背景的新型皮肤描述符
      */
     public static Skin of(String id, String name, String author,
                           String accent, String bg, URL cssUrl, boolean builtin) {
@@ -91,67 +88,67 @@ public final class Skin {
     }
 
     /**
-     * Return a copy of this skin carrying a default backdrop image.
+     * 返回携带默认背景图的本皮肤副本。
      *
-     * @param image   the backdrop image URL (may be {@code null} to clear)
-     * @param opacity the backdrop opacity in {@code (0, 1]}
-     * @return a new skin descriptor
+     * @param image   背景图 URL（可为 {@code null} 以清除）
+     * @param opacity 背景透明度，取值于 {@code (0, 1]}
+     * @return 新的皮肤描述符
      */
     public Skin withBackground(URL image, double opacity) {
         return new Skin(id, name, author, swatchAccent, swatchBg, cssUrl, builtin, image, opacity);
     }
 
-    /** @return the stable skin id */
+    /** @return 稳定的皮肤 id */
     public String id() {
         return id;
     }
 
-    /** @return the display name */
+    /** @return 显示名称 */
     public String name() {
         return name;
     }
 
-    /** @return the author string */
+    /** @return 作者字符串 */
     public String author() {
         return author;
     }
 
-    /** @return the accent colour of the picker swatch */
+    /** @return 选择器色板的强调色 */
     public String swatchAccent() {
         return swatchAccent;
     }
 
-    /** @return the background colour of the picker swatch */
+    /** @return 选择器色板的背景色 */
     public String swatchBg() {
         return swatchBg;
     }
 
-    /** @return the stylesheet URL */
+    /** @return 样式表 URL */
     public URL cssUrl() {
         return cssUrl;
     }
 
-    /** @return whether this skin ships with the application */
+    /** @return 该皮肤是否随应用内置 */
     public boolean isBuiltin() {
         return builtin;
     }
 
-    /** @return the default backdrop image URL, or {@code null} when the skin has none */
+    /** @return 默认背景图 URL；若该皮肤没有则返回 {@code null} */
     public URL backgroundImage() {
         return backgroundImage;
     }
 
-    /** @return the default backdrop opacity in {@code (0, 1]} */
+    /** @return 默认背景透明度，取值于 {@code (0, 1]} */
     public double backgroundOpacity() {
         return backgroundOpacity;
     }
 
-    /** @return whether this skin declares a default backdrop image */
+    /** @return 该皮肤是否声明了默认背景图 */
     public boolean hasBackground() {
         return backgroundImage != null;
     }
 
-    /** @return the external string form required by {@code Scene.getStylesheets()} */
+    /** @return {@code Scene.getStylesheets()} 所需的外部字符串形式 */
     public String externalForm() {
         return cssUrl.toExternalForm();
     }

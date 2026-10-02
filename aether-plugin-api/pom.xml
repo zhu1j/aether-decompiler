@@ -22,8 +22,7 @@
     </description>
 
     <!--
-      Deliberately NO dependencies. This jar must remain extremely small so a
-      third-party plugin can be built against it without dragging in the kernel
-      or ASM.
+      刻意不含任何依赖。本 jar 必须保持极小，以便第三方插件可以针对它构建，
+      而无需拖入内核或 ASM。
     -->
 </project>

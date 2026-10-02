@@ -27,7 +27,7 @@
             <artifactId>aether-plugin-api</artifactId>
         </dependency>
 
-        <!-- The kernel's single third-party dependency. -->
+        <!-- 内核唯一的第三方依赖。 -->
         <dependency>
             <groupId>org.ow2.asm</groupId>
             <artifactId>asm</artifactId>

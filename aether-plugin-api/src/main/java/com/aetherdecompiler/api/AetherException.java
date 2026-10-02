@@ -1,36 +1,34 @@
 /*
- * aether-decompiler — an independent, reusable JVM decompilation engine.
+ * aether-decompiler —— 一个独立、可复用的 JVM 反编译引擎。
  * Copyright 2026 Jerry Zhu (Zeek) <zhujiejava1@gmail.com>
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+ * 依据 Apache License, Version 2.0（下称“本许可证”）授权；
+ * 除非遵守本许可证，否则你不得使用本文件。
+ * 你可以在以下地址获取本许可证副本：
  *
  *     http://www.apache.org/licenses/LICENSE-2.0
  *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * 除非适用法律要求或书面同意，依据本许可证分发的软件
+ * 均按“原样（AS IS）”提供，不附带任何明示或默示的担保，
+ * 包括但不限于对适销性、特定用途适用性的担保。
+ * 关于本许可证下具体权限与限制的表述，请参见本许可证。
  *
  * @author Jerry Zhu (Zeek)
- * "Run the Code, Run the World!"
+ * “Run the Code, Run the World!”
  */
 package com.aetherdecompiler.api;
 
 /**
- * The single unchecked root exception of the engine.
+ * 引擎唯一的不受检根异常。
  *
- * <p>Contract: the kernel never lets a third-party exception type escape its
- * boundary. Every {@code org.objectweb.asm.*} failure and every internal
- * failure is wrapped into an {@code AetherException} carrying an
- * {@link ErrorCode}. This is the concrete mechanism that keeps ASM from
- * leaking into the public API — callers only ever see aether types.</p>
+ * <p>契约：内核绝不让第三方异常类型逃逸其边界。每一次
+ * {@code org.objectweb.asm.*} 失败以及每一次内部失败，都被包装进一个携带
+ * {@link ErrorCode} 的 {@code AetherException}。这就是防止 ASM 泄漏进公开
+ * API 的具体机制 —— 调用方只会看到 aether 类型。</p>
  *
- * <p>Story analogy: the kernel is a sealed reactor hall. Whatever fails inside
- * — a foreign tool, a bad reading — is reported at the door under the
- * reactor's own label. Nothing foreign walks out.</p>
+ * <p>故事类比：内核是一座密封的反应堆大厅。里面无论出什么故障 —— 外来的
+ * 工具、异常的读数 —— 都在门口以反应堆自己的标签上报。没有任何异物
+ * 走出去。</p>
  *
  * @author Jerry Zhu (Zeek)
  */
@@ -41,8 +39,8 @@ public final class AetherException extends RuntimeException {
     private final ErrorCode errorCode;
 
     /**
-     * @param errorCode the stable machine-readable code (never {@code null})
-     * @param message   a human-readable description
+     * @param errorCode 稳定的机器可读错误码（永不为 {@code null}）
+     * @param message   人类可读的描述
      */
     public AetherException(ErrorCode errorCode, String message) {
         super(message);
@@ -50,9 +48,9 @@ public final class AetherException extends RuntimeException {
     }
 
     /**
-     * @param errorCode the stable machine-readable code (never {@code null})
-     * @param message   a human-readable description
-     * @param cause     the wrapped cause (typically an ASM exception)
+     * @param errorCode 稳定的机器可读错误码（永不为 {@code null}）
+     * @param message   人类可读的描述
+     * @param cause     被包装的原因（通常是 ASM 异常）
      */
     public AetherException(ErrorCode errorCode, String message, Throwable cause) {
         super(message, cause);
@@ -60,19 +58,19 @@ public final class AetherException extends RuntimeException {
     }
 
     /**
-     * @return the stable machine-readable error code
+     * @return 稳定的机器可读错误码
      */
     public ErrorCode errorCode() {
         return errorCode;
     }
 
     /**
-     * Wrap any throwable, preserving an existing {@code AetherException} as-is.
+     * 包装任意可抛出对象，并把已有的 {@code AetherException} 原样保留。
      *
-     * @param errorCode the code to use when wrapping
-     * @param message   a human-readable description
-     * @param cause     the throwable to wrap
-     * @return an {@code AetherException} representing {@code cause}
+     * @param errorCode 包装时使用的错误码
+     * @param message   人类可读的描述
+     * @param cause     要包装的可抛出对象
+     * @return 代表 {@code cause} 的 {@code AetherException}
      */
     public static AetherException wrap(ErrorCode errorCode, String message, Throwable cause) {
         if (cause instanceof AetherException aether) {
@@ -87,7 +85,7 @@ public final class AetherException extends RuntimeException {
     }
 
     /**
-     * @return the bare message without the error-code prefix
+     * @return 去除错误码前缀后的裸消息
      */
     public String rawMessage() {
         return super.getMessage();

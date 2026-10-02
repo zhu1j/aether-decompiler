@@ -1,60 +1,58 @@
 /*
- * aether-decompiler — an independent, reusable JVM decompilation engine.
+ * aether-decompiler —— 一个独立、可复用的 JVM 反编译引擎。
  * Copyright 2026 Jerry Zhu (Zeek) <zhujiejava1@gmail.com>
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+ * 依据 Apache License, Version 2.0（下称“本许可证”）授权；
+ * 除非遵守本许可证，否则你不得使用本文件。
+ * 你可以在以下地址获取本许可证副本：
  *
  *     http://www.apache.org/licenses/LICENSE-2.0
  *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * 除非适用法律要求或书面同意，依据本许可证分发的软件
+ * 均按“原样（AS IS）”提供，不附带任何明示或默示的担保，
+ * 包括但不限于对适销性、特定用途适用性的担保。
+ * 关于本许可证下具体权限与限制的表述，请参见本许可证。
  *
  * @author Jerry Zhu (Zeek)
- * "Run the Code, Run the World!"
+ * “Run the Code, Run the World!”
  */
 package com.aetherdecompiler.api;
 
 import java.util.Map;
 
 /**
- * Extension point #4 — an additional analysis over the intermediate model.
+ * 扩展点 #4 —— 针对中间模型的附加分析。
  *
- * <p>Analyses produce supplementary facts (call graphs, obfuscation detection,
- * metrics) without touching the pipeline's main path. Hard constraint #7 makes
- * obfuscation analysis a plugin concern, not a kernel concern; this is its
- * designated home.</p>
+ * <p>分析产出补充事实（调用图、混淆检测、度量），而不触碰流水线的主路径。
+ * 硬性约束 #7 把混淆分析定为插件的关注点而非内核的关注点；这里便是它的
+ * 指定归属。</p>
  *
- * <p>Results are returned as a neutral name-to-value map so the plugin API
- * never depends on any analysis-specific type.</p>
+ * <p>结果以中性的“名称到值”映射返回，因此插件 API 永不依赖任何与分析
+ * 相关的类型。</p>
  *
- * <p>Story analogy: a quality-control inspector who measures parts on the line
- * and files a report, without altering the parts themselves.</p>
+ * <p>故事类比：一位质检员，他在产线上测量零件并提交报告，
+ * 但不改动零件本身。</p>
  *
  * @author Jerry Zhu (Zeek)
  */
 public interface AnalysisPlugin {
 
     /**
-     * @return a unique, stable plugin id, e.g. {@code "analysis.callgraph"}
+     * @return 唯一、稳定的插件 id，例如 {@code "analysis.callgraph"}
      */
     String id();
 
     /**
-     * @return a human-readable name
+     * @return 人类可读的名称
      */
     String displayName();
 
     /**
-     * Analyse an intermediate object (typically a class or method model).
+     * 分析一个中间对象（通常是类或方法模型）。
      *
-     * @param subject the object to analyse, as a neutral {@link IRObject}
-     * @param ctx     the host context
-     * @return a name-to-result map (never {@code null})
+     * @param subject 要分析的对象，以中性的 {@link IRObject} 表示
+     * @param ctx     宿主上下文
+     * @return 名称到结果的映射（永不为 {@code null}）
      */
     Map<String, Object> analyse(IRObject subject, PluginContext ctx);
 }

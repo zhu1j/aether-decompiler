@@ -1,35 +1,32 @@
 /*
- * aether-decompiler — an independent, reusable JVM decompilation engine.
+ * aether-decompiler —— 一个独立、可复用的 JVM 反编译引擎。
  * Copyright 2026 Jerry Zhu (Zeek) <zhujiejava1@gmail.com>
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+ * 依据 Apache License, Version 2.0（下称“本许可证”）授权；
+ * 除非遵守本许可证，否则你不得使用本文件。
+ * 你可以在以下地址获取本许可证副本：
  *
  *     http://www.apache.org/licenses/LICENSE-2.0
  *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * 除非适用法律要求或书面同意，依据本许可证分发的软件
+ * 均按“原样（AS IS）”提供，不附带任何明示或默示的担保，
+ * 包括但不限于对适销性、特定用途适用性的担保。
+ * 关于本许可证下具体权限与限制的表述，请参见本许可证。
  *
  * @author Jerry Zhu (Zeek)
- * "Run the Code, Run the World!"
+ * “Run the Code, Run the World!”
  */
 package com.aetherdecompiler.core.model;
 
 import java.util.Objects;
 
 /**
- * An immutable field model.
+ * 不可变的字段模型。
  *
- * <p>Fields carry no behaviour, so the model is small: access flags, name,
- * descriptor, and generic signature. It exists so the class model is complete
- * and a future renderer can emit field declarations without revisiting ASM.</p>
+ * <p>字段不携带行为，所以模型很小：访问标志、名称、描述符与泛型签名。它存在
+ * 是为了让类模型完整，并让未来的渲染器无需再碰 ASM 就能输出字段声明。</p>
  *
- * <p>Story analogy: a nameplate riveted to a machine — it identifies the part,
- * but the part does nothing by itself.</p>
+ * <p>故事类比：铆在机器上的铭牌 —— 它标识零件，但零件自身什么也不做。</p>
  *
  * @author Jerry Zhu (Zeek)
  */
@@ -41,10 +38,10 @@ public final class FieldModel {
     private final String signature;
 
     /**
-     * @param access     raw access flags
-     * @param name       the field name
-     * @param descriptor the field descriptor, e.g. {@code "Ljava/lang/String;"}
-     * @param signature  the generic signature, or {@code null}
+     * @param access     原始访问标志
+     * @param name       字段名
+     * @param descriptor 字段描述符，例如 {@code "Ljava/lang/String;"}
+     * @param signature  泛型签名，或 {@code null}
      */
     public FieldModel(int access, String name, String descriptor, String signature) {
         this.access = access;
@@ -53,22 +50,22 @@ public final class FieldModel {
         this.signature = signature;
     }
 
-    /** @return the raw access flags */
+    /** @return 原始访问标志 */
     public int access() {
         return access;
     }
 
-    /** @return the field name */
+    /** @return 字段名 */
     public String name() {
         return name;
     }
 
-    /** @return the field descriptor */
+    /** @return 字段描述符 */
     public String descriptor() {
         return descriptor;
     }
 
-    /** @return the generic signature, or {@code null} */
+    /** @return 泛型签名，或 {@code null} */
     public String signature() {
         return signature;
     }

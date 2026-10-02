@@ -1,21 +1,20 @@
 /*
- * aether-decompiler — an independent, reusable JVM decompilation engine.
+ * aether-decompiler —— 一个独立、可复用的 JVM 反编译引擎。
  * Copyright 2026 Jerry Zhu (Zeek) <zhujiejava1@gmail.com>
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+ * 依据 Apache License, Version 2.0（下称“本许可证”）授权；
+ * 除非遵守本许可证，否则你不得使用本文件。
+ * 你可以在以下地址获取本许可证副本：
  *
  *     http://www.apache.org/licenses/LICENSE-2.0
  *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * 除非适用法律要求或书面同意，依据本许可证分发的软件
+ * 均按“原样（AS IS）”提供，不附带任何明示或默示的担保，
+ * 包括但不限于对适销性、特定用途适用性的担保。
+ * 关于本许可证下具体权限与限制的表述，请参见本许可证。
  *
  * @author Jerry Zhu (Zeek)
- * "Run the Code, Run the World!"
+ * “Run the Code, Run the World!”
  */
 package com.aetherdecompiler.core.cfg;
 
@@ -27,28 +26,25 @@ import java.util.Deque;
 import java.util.List;
 
 /**
- * Computes the dominator tree of a {@link ControlFlowGraph}.
+ * 计算 {@link ControlFlowGraph} 的支配树。
  *
- * <p>Node {@code d} dominates node {@code n} when every path from the entry to
- * {@code n} passes through {@code d}. The immediate dominator of {@code n} is
- * the closest such node. Dominance is the backbone of loop detection and of
- * structured control-flow reconstruction, so it is computed here as a first
- * class view.</p>
+ * <p>当从入口到 {@code n} 的每条路径都经过 {@code d} 时，节点 {@code d} 支配
+ * 节点 {@code n}。{@code n} 的直接支配者就是最近的那个这样的节点。支配关系是
+ * 循环检测与结构化控制流重建的骨架，因此在这里作为一等视图计算出来。</p>
  *
- * <p>Implementation uses the classic iterative Cooper–Harvey–Kennedy data-flow
- * formulation over reverse-postorder numbers: simple, deterministic, and
- * dependency-free.</p>
+ * <p>实现采用在逆后序编号上的经典迭代式 Cooper–Harvey–Kennedy 数据流
+ * 形式：简单、确定且无依赖。</p>
  *
- * <p>Story analogy: the chain of command. To reach a soldier every order must
- * pass through their direct superior — the immediate dominator.</p>
+ * <p>故事类比：指挥链。要让命令到达一名士兵，每条命令都必须经过他的
+ * 直接上级 —— 那便是直接支配者。</p>
  *
  * @author Jerry Zhu (Zeek)
  */
 public final class DominatorTree {
 
-    private final int[] idom;      // immediate dominator per block id (-1 for entry)
-    private final int[] rpoNumber; // block id -> reverse-postorder number
-    private final int[] byRpo;     // reverse-postorder number -> block id
+    private final int[] idom;      // 每个块 id 的直接支配者（入口为 -1）
+    private final int[] rpoNumber; // 块 id -> 逆后序编号
+    private final int[] byRpo;     // 逆后序编号 -> 块 id
 
     private DominatorTree(int[] idom, int[] rpoNumber, int[] byRpo) {
         this.idom = idom;
@@ -57,10 +53,10 @@ public final class DominatorTree {
     }
 
     /**
-     * Build the dominator tree for a CFG.
+     * 为 CFG 构建支配树。
      *
-     * @param cfg the control-flow graph
-     * @return the dominator tree
+     * @param cfg 控制流图
+     * @return 支配树
      */
     public static DominatorTree of(ControlFlowGraph cfg) {
         int n = cfg.blockCount();
@@ -72,7 +68,7 @@ public final class DominatorTree {
             return new DominatorTree(idom, new int[0], new int[0]);
         }
 
-        // 1. Reverse postorder from the entry block.
+        // 1. 从入口块开始做逆后序。
         int[] order = reversePostorder(cfg);
         int[] rpoNumber = new int[n];
         for (int i = 0; i < n; i++) {
@@ -83,7 +79,7 @@ public final class DominatorTree {
         }
         int[] byRpo = order.clone();
 
-        // 2. Iterative immediate-dominator fixpoint in RPO.
+        // 2. 在逆后序上迭代求直接支配者不动点。
         idom[0] = 0;
         boolean changed = true;
         while (changed) {
@@ -93,11 +89,11 @@ public final class DominatorTree {
                 int newIdom = -1;
                 for (int pred : predecessors(cfg, b)) {
                     if (rpoNumber[pred] == -1) {
-                        continue; // unreachable predecessor
+                        continue; // 不可达前驱
                     }
-                    // Skip predecessors whose own idom is not yet assigned.
-                    // Processing in reverse postorder guarantees at least one
-                    // predecessor is already assigned, so newIdom is set.
+                    // 跳过尚未分配自身直接支配者的前驱。
+                    // 按逆后序处理可保证至少有一个
+                    // 前驱已被赋值，因此 newIdom 一定有值。
                     if (pred != 0 && idom[pred] == -1) {
                         continue;
                     }
@@ -114,7 +110,7 @@ public final class DominatorTree {
             }
         }
 
-        // Entry dominates itself but has no parent.
+        // 入口支配它自己，但没有父节点。
         idom[0] = -1;
         return new DominatorTree(idom, rpoNumber, byRpo);
     }
@@ -177,26 +173,25 @@ public final class DominatorTree {
     }
 
     /**
-     * @param blockId a block id
-     * @return the immediate dominator's block id, or {@code -1} for the entry
-     *         or an unreachable block
+     * @param blockId 块 id
+     * @return 直接支配者的块 id；对入口或不可达块返回 {@code -1}
      */
     public int immediateDominator(int blockId) {
         return idom[blockId];
     }
 
     /**
-     * @param blockId a block id
-     * @return whether the block is reachable from the entry
+     * @param blockId 块 id
+     * @return 该块是否可从入口到达
      */
     public boolean isReachable(int blockId) {
         return rpoNumber[blockId] != -1;
     }
 
     /**
-     * @param dominator a candidate dominator block id
-     * @param node      a block id
-     * @return whether {@code dominator} dominates {@code node}
+     * @param dominator 候选支配者块 id
+     * @param node      块 id
+     * @return {@code dominator} 是否支配 {@code node}
      */
     public boolean dominates(int dominator, int node) {
         if (!isReachable(node) || !isReachable(dominator)) {
@@ -213,9 +208,9 @@ public final class DominatorTree {
     }
 
     /**
-     * @param blockId a block id
-     * @return the block ids dominated by {@code blockId} (children in the tree),
-     *         not including itself
+     * @param blockId 块 id
+     * @return 被 {@code blockId} 支配的块 id（树中的子节点），
+     *         不包含它自身
      */
     public List<Integer> children(int blockId) {
         List<Integer> children = new ArrayList<>();

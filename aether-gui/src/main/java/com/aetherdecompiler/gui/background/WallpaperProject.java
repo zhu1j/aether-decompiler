@@ -1,21 +1,20 @@
 /*
- * aether-decompiler — an independent, reusable JVM decompilation engine.
+ * aether-decompiler —— 一个独立、可复用的 JVM 反编译引擎。
  * Copyright 2026 Jerry Zhu (Zeek) <zhujiejava1@gmail.com>
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+ * 依据 Apache License, Version 2.0（下称“本许可证”）授权；
+ * 除非遵守本许可证，否则你不得使用本文件。
+ * 你可以在以下地址获取本许可证副本：
  *
  *     http://www.apache.org/licenses/LICENSE-2.0
  *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * 除非适用法律要求或书面同意，依据本许可证分发的软件
+ * 均按“原样（AS IS）”提供，不附带任何明示或默示的担保，
+ * 包括但不限于对适销性、特定用途适用性的担保。
+ * 关于本许可证下具体权限与限制的表述，请参见本许可证。
  *
  * @author Jerry Zhu (Zeek)
- * "Run the Code, Run the World!"
+ * “Run the Code, Run the World!”
  */
 package com.aetherdecompiler.gui.background;
 
@@ -29,31 +28,29 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
- * A reader for a Wallpaper&nbsp;Engine project folder.
+ * Wallpaper&nbsp;Engine 工程文件夹的读取器。
  *
- * <p>A Wallpaper Engine project is a directory containing a {@code project.json}
- * descriptor plus the wallpaper's media file and a {@code preview} thumbnail.
- * The descriptor carries the fields the studio cares about:</p>
+ * <p>一个 Wallpaper Engine 工程是一个包含 {@code project.json} 描述符以及
+ * 壁纸媒体文件与 {@code preview} 缩略图的目录。该描述符携带工作台关心的
+ * 字段：</p>
  *
  * <pre>{@code
  * {
- *   "file":      "IMG_0505.mp4",     // the media the wallpaper actually plays
- *   "preview":   "preview.jpg",      // thumbnail shown in the browser/creator
- *   "title":     "吾王美如画",          // display title
- *   "type":      "video",            // video | scene | web | application
+ *   "file":      "IMG_0505.mp4",     // 壁纸实际播放的媒体
+ *   "preview":   "preview.jpg",      // 浏览器/创作器中显示的缩略图
+ *   "title":     "吾王美如画",          // 显示标题
+ *   "type":      "video",            // 类型：video | scene | web | application
  *   "general": { "properties": { "schemecolor": { "value": "0.15 0.43 0.90" } } }
  * }
  * }</pre>
  *
- * <p>The parser is deliberately a tiny, dependency-free, tolerant reader: it
- * looks for the handful of named string keys with regular expressions rather
- * than pulling a JSON library into the GUI. Wallpaper Engine files are simple
- * and stable, and a missing key is treated as "absent" rather than fatal, so an
- * unusual project still yields a usable backdrop by falling back to the folder's
- * first media file.</p>
+ * <p>该解析器刻意是一个极小、无依赖、宽容的读取器：它用正则表达式查找少数
+ * 几个具名字符串键，而不是把 JSON 库拉进 GUI。Wallpaper Engine 文件简单而
+ * 稳定，缺失的键会被当作“不存在”而非致命错误，因此一个不寻常的工程仍能通过
+ * 回退到文件夹中的首个媒体文件而产出可用的背景。</p>
  *
- * <p>Story analogy: a bilingual assistant who only needs to spot a few known
- * words on a label, not read the whole brochure.</p>
+ * <p>故事类比：一位双语助理，只需在标签上认出几个已知的词，
+ * 而不必通读整本手册。</p>
  *
  * @author Jerry Zhu (Zeek)
  */
@@ -63,8 +60,8 @@ public final class WallpaperProject {
     private static final Pattern PREVIEW_KEY = stringKey("preview");
     private static final Pattern TITLE_KEY = stringKey("title");
     private static final Pattern TYPE_KEY = stringKey("type");
-    // "schemecolor" maps to an object, so match the key only; its "value" string
-    // is located separately after this key.
+    // “schemecolor” 映射到一个对象，所以只匹配该键；其 “value” 字符串
+    // 在此键之后单独定位。
     private static final Pattern SCHEME_COLOR_KEY =
             Pattern.compile("\"schemecolor\"\\s*:");
     private static final Pattern VALUE_KEY = stringKey("value");
@@ -93,8 +90,8 @@ public final class WallpaperProject {
     }
 
     /**
-     * @param directory a Wallpaper Engine project folder
-     * @return whether the folder looks like a Wallpaper Engine project
+     * @param directory 一个 Wallpaper Engine 工程文件夹
+     * @return 该文件夹是否看起来像一个 Wallpaper Engine 工程
      */
     public static boolean isProject(Path directory) {
         return directory != null
@@ -103,11 +100,11 @@ public final class WallpaperProject {
     }
 
     /**
-     * Parse a Wallpaper Engine project folder.
+     * 解析一个 Wallpaper Engine 工程文件夹。
      *
-     * @param directory the folder containing {@code project.json}
-     * @return the parsed project
-     * @throws IOException if the descriptor is missing or unreadable
+     * @param directory 包含 {@code project.json} 的文件夹
+     * @return 解析后的工程
+     * @throws IOException 若描述符缺失或不可读
      */
     public static WallpaperProject load(Path directory) throws IOException {
         Path json = directory.resolve("project.json");
@@ -137,14 +134,14 @@ public final class WallpaperProject {
                 media, thumb, schemeColor);
     }
 
-    /** @return the {@code type} field (video / scene / web / application), lower-cased */
+    /** @return {@code type} 字段（video / scene / web / application），已转为小写 */
     public String type() {
         return type == null ? "" : type.toLowerCase(java.util.Locale.ROOT);
     }
 
     /**
-     * @return the Wallpaper Engine scheme colour parsed from its {@code "r g b"}
-     *         float triple into a {@code #rrggbb} string, or {@code null}
+     * @return 由 Wallpaper Engine 的 {@code "r g b"} 浮点三元组解析得的方案色
+     *         {@code #rrggbb} 字符串；或 {@code null}
      */
     public String schemeColor() {
         return schemeColor;
@@ -155,7 +152,7 @@ public final class WallpaperProject {
         if (!sc.find()) {
             return null;
         }
-        // Look for the first "value" string after the schemecolor key.
+        // 在 schemecolor 键之后查找第一个 “value” 字符串。
         Matcher val = VALUE_KEY.matcher(text);
         if (!val.find(sc.end())) {
             return null;
@@ -207,32 +204,32 @@ public final class WallpaperProject {
         }
     }
 
-    /** @return the project folder */
+    /** @return 工程文件夹 */
     public Path directory() {
         return directory;
     }
 
-    /** @return the {@code project.json} path */
+    /** @return {@code project.json} 路径 */
     public Path projectJson() {
         return projectJson;
     }
 
-    /** @return the display title */
+    /** @return 显示标题 */
     public String title() {
         return title;
     }
 
-    /** @return the wallpaper's media file */
+    /** @return 壁纸的媒体文件 */
     public Path media() {
         return media;
     }
 
-    /** @return the preview thumbnail, or {@code null} */
+    /** @return 预览缩略图，或 {@code null} */
     public Path preview() {
         return preview;
     }
 
-    /** @return the project normalised into a {@link Backdrop} */
+    /** @return 归一化为 {@link Backdrop} 的工程 */
     public Backdrop toBackdrop() {
         return Backdrop.of(title, media, preview);
     }

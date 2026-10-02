@@ -1,74 +1,71 @@
 /*
- * aether-decompiler — an independent, reusable JVM decompilation engine.
+ * aether-decompiler —— 一个独立、可复用的 JVM 反编译引擎。
  * Copyright 2026 Jerry Zhu (Zeek) <zhujiejava1@gmail.com>
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+ * 依据 Apache License, Version 2.0（下称“本许可证”）授权；
+ * 除非遵守本许可证，否则你不得使用本文件。
+ * 你可以在以下地址获取本许可证副本：
  *
  *     http://www.apache.org/licenses/LICENSE-2.0
  *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * 除非适用法律要求或书面同意，依据本许可证分发的软件
+ * 均按“原样（AS IS）”提供，不附带任何明示或默示的担保，
+ * 包括但不限于对适销性、特定用途适用性的担保。
+ * 关于本许可证下具体权限与限制的表述，请参见本许可证。
  *
  * @author Jerry Zhu (Zeek)
- * "Run the Code, Run the World!"
+ * “Run the Code, Run the World!”
  */
 package com.aetherdecompiler.api;
 
 /**
- * Stable, machine-readable error codes emitted by the engine.
+ * 引擎发出的稳定、机器可读的错误码。
  *
- * <p>Codes are grouped by a two-digit family prefix so callers can branch
- * cheaply (e.g. {@code AETHER-1xxx} = input/source problems). The numeric code
- * is part of the public contract and must never be reused for a different
- * meaning.</p>
+ * <p>错误码按两位数的族群前缀分组，便于调用方廉价地分支（例如
+ * {@code AETHER-1xxx} = 输入/来源问题）。数字码是公开契约的一部分，
+ * 绝不可为别的含义重用。</p>
  *
- * <p>Story analogy: these are the fault lamps on a factory control panel. The
- * factory never speaks in prose to the operator — it lights a specific,
- * documented lamp.</p>
+ * <p>故事类比：工厂控制面板上的故障灯。工厂从不用散文对操作员讲话 ——
+ * 它点亮一盏特定的、有据可查的灯。</p>
  *
  * @author Jerry Zhu (Zeek)
  */
 public enum ErrorCode {
 
-    /** A class file / jar could not be located or opened. */
+    /** 无法定位或打开某个类文件 / jar。 */
     INPUT_NOT_FOUND(1001, "Input not found"),
 
-    /** The bytes handed to the engine are not a valid class file. */
+    /** 交给引擎的字节不是合法的类文件。 */
     INPUT_MALFORMED(1002, "Malformed class file"),
 
-    /** The class file version is newer than this engine's ASM backend supports. */
+    /** 类文件版本比本引擎的 ASM 后端所支持的更新。 */
     INPUT_UNSUPPORTED_VERSION(1003, "Unsupported class file version"),
 
-    /** A referenced class the engine expected to read was absent. */
+    /** 引擎期望读取的某个被引用类缺失。 */
     INPUT_MISSING_REFERENCE(1004, "Missing class reference"),
 
-    /** The control-flow graph could not be constructed for a method. */
+    /** 无法为某个方法构建控制流图。 */
     CFG_CONSTRUCTION_FAILED(2001, "CFG construction failed"),
 
-    /** A method body referenced a bytecode offset that has no basic block. */
+    /** 某个方法体引用了不存在基本块的字节码偏移。 */
     CFG_DANGLING_JUMP_TARGET(2002, "Dangling jump target"),
 
-    /** A method failed during SSA construction. */
+    /** 某个方法在 SSA 构建期间失败。 */
     SSA_CONSTRUCTION_FAILED(3001, "SSA construction failed"),
 
-    /** Type inference reached an inconsistent state for a stack slot. */
+    /** 类型推断对某个栈槽达到不一致状态。 */
     TYPE_INFERENCE_FAILED(3002, "Type inference failed"),
 
-    /** A plugin refused or failed to fulfil a request. */
+    /** 某个插件拒绝或未能完成某个请求。 */
     PLUGIN_FAILURE(4001, "Plugin failure"),
 
-    /** A plugin declared metadata that violates the contract. */
+    /** 某个插件声明的元数据违反了契约。 */
     PLUGIN_INVALID_METADATA(4002, "Invalid plugin metadata"),
 
-    /** An internal invariant of the engine was violated. */
+    /** 引擎的某个内部不变量被违反。 */
     INTERNAL_INVARIANT(9001, "Internal invariant violated"),
 
-    /** A catch-all for errors that do not yet have a dedicated code. */
+    /** 对尚无专用错误码的错误的兜底。 */
     UNKNOWN(9999, "Unknown error");
 
     private final int code;
@@ -80,22 +77,22 @@ public enum ErrorCode {
     }
 
     /**
-     * @return the stable numeric code, part of the public contract
+     * @return 稳定的数字码，是公开契约的一部分
      */
     public int code() {
         return code;
     }
 
     /**
-     * @return a short human-readable label for this code
+     * @return 该错误码的简短人类可读标签
      */
     public String message() {
         return message;
     }
 
     /**
-     * @return the zero-padded, prefixed form used in logs and CLI output,
-     *         e.g. {@code "AETHER-1002"}
+     * @return 用于日志与 CLI 输出的、零填充带前缀形式，
+     *         例如 {@code "AETHER-1002"}
      */
     public String tag() {
         return "AETHER-" + code;

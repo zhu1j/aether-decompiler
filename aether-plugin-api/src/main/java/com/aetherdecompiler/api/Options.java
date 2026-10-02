@@ -1,21 +1,20 @@
 /*
- * aether-decompiler — an independent, reusable JVM decompilation engine.
+ * aether-decompiler —— 一个独立、可复用的 JVM 反编译引擎。
  * Copyright 2026 Jerry Zhu (Zeek) <zhujiejava1@gmail.com>
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+ * 依据 Apache License, Version 2.0（下称“本许可证”）授权；
+ * 除非遵守本许可证，否则你不得使用本文件。
+ * 你可以在以下地址获取本许可证副本：
  *
  *     http://www.apache.org/licenses/LICENSE-2.0
  *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * 除非适用法律要求或书面同意，依据本许可证分发的软件
+ * 均按“原样（AS IS）”提供，不附带任何明示或默示的担保，
+ * 包括但不限于对适销性、特定用途适用性的担保。
+ * 关于本许可证下具体权限与限制的表述，请参见本许可证。
  *
  * @author Jerry Zhu (Zeek)
- * "Run the Code, Run the World!"
+ * “Run the Code, Run the World!”
  */
 package com.aetherdecompiler.api;
 
@@ -26,19 +25,16 @@ import java.util.Objects;
 import java.util.Optional;
 
 /**
- * An immutable snapshot of engine configuration.
+ * 引擎配置的不可变快照。
  *
- * <p>Design contract (frozen at 1.0-major): the kernel consumes an
- * {@code Options} value and never parses command-line strings itself. Option
- * <em>definitions</em> (name, type, default, help text) are contributed by
- * plugins through {@link OptionRegistry}; the application layer (CLI/GUI)
- * parses user input into an {@code Options} and hands it down. This keeps the
- * kernel free of any UI concern and lets plugins add options without the
- * kernel changing.</p>
+ * <p>设计契约（在 1.0 主版本冻结）：内核消费一个 {@code Options} 值，
+ * 而绝不自行解析命令行字符串。选项<em>定义</em>（名称、类型、默认值、帮助
+ * 文本）由插件通过 {@link OptionRegistry} 贡献；应用层（CLI/GUI）把用户输入
+ * 解析为一个 {@code Options} 并向下传递。这让内核不含任何 UI 关注点，并让
+ * 插件能够新增选项而无需改动内核。</p>
  *
- * <p>Story analogy: {@code Options} is the sealed, signed work-order that
- * travels from the front desk into the factory floor. The floor never takes
- * verbal requests; it only executes a fully-specified signed order.</p>
+ * <p>故事类比：{@code Options} 是一份密封、已签署的工单，从前台流转到工厂
+ * 车间。车间从不接受口头请求；它只执行一份完整说明、已签署的工单。</p>
  *
  * @author Jerry Zhu (Zeek)
  */
@@ -53,29 +49,29 @@ public final class Options {
     }
 
     /**
-     * @return the empty option set (all defaults)
+     * @return 空选项集（全部使用默认值）
      */
     public static Options empty() {
         return EMPTY;
     }
 
     /**
-     * @return a fresh builder
+     * @return 一个新的构建器
      */
     public static Builder builder() {
         return new Builder();
     }
 
     /**
-     * @return the raw value for a key, or {@code null}
+     * @return 某个键的原始值，或 {@code null}
      */
     public Object raw(String key) {
         return values.get(key);
     }
 
     /**
-     * @param key the option key
-     * @return the string value for a key, if present
+     * @param key 选项键
+     * @return 某个键的字符串值（若存在）
      */
     public Optional<String> getString(String key) {
         Object v = values.get(key);
@@ -83,9 +79,9 @@ public final class Options {
     }
 
     /**
-     * @param key          the option key
-     * @param defaultValue value returned when absent
-     * @return the boolean value, coerced from string/boolean storage
+     * @param key          选项键
+     * @param defaultValue 不存在时返回的值
+     * @return 布尔值，由字符串/布尔存储强制转换而来
      */
     public boolean getBoolean(String key, boolean defaultValue) {
         Object v = values.get(key);
@@ -99,9 +95,9 @@ public final class Options {
     }
 
     /**
-     * @param key          the option key
-     * @param defaultValue value returned when absent or unparseable
-     * @return the integer value
+     * @param key          选项键
+     * @param defaultValue 不存在或无法解析时返回的值
+     * @return 整数值
      */
     public int getInt(String key, int defaultValue) {
         Object v = values.get(key);
@@ -119,9 +115,9 @@ public final class Options {
     }
 
     /**
-     * @param key          the option key
-     * @param defaultValue value returned when absent or unparseable
-     * @return the long value
+     * @param key          选项键
+     * @param defaultValue 不存在或无法解析时返回的值
+     * @return 长整数值
      */
     public long getLong(String key, long defaultValue) {
         Object v = values.get(key);
@@ -139,19 +135,18 @@ public final class Options {
     }
 
     /**
-     * @return an immutable view of all set values
+     * @return 全部已设值的不可变视图
      */
     public Map<String, Object> asMap() {
         return values;
     }
 
     /**
-     * Returns a new {@code Options} with one key added or replaced, leaving
-     * this instance untouched.
+     * 返回一个新增或替换了某个键的新 {@code Options}，保持本实例不变。
      *
-     * @param key   the option key
-     * @param value the new value
-     * @return a new immutable snapshot
+     * @param key   选项键
+     * @param value 新值
+     * @return 新的不可变快照
      */
     public Options with(String key, Object value) {
         Objects.requireNonNull(key, "key");
@@ -161,8 +156,7 @@ public final class Options {
     }
 
     /**
-     * Fluent builder for {@code Options}. Insertion order is preserved so
-     * debugging dumps are deterministic.
+     * {@code Options} 的流式构建器。保留插入顺序，使调试转储具有确定性。
      *
      * @author Jerry Zhu (Zeek)
      */
@@ -173,9 +167,9 @@ public final class Options {
         }
 
         /**
-         * @param key   the option key
-         * @param value the value
-         * @return this builder
+         * @param key   选项键
+         * @param value 值
+         * @return 本构建器
          */
         public Builder set(String key, Object value) {
             Objects.requireNonNull(key, "key");
@@ -184,7 +178,7 @@ public final class Options {
         }
 
         /**
-         * @return the immutable {@code Options}
+         * @return 不可变的 {@code Options}
          */
         public Options build() {
             if (values.isEmpty()) {

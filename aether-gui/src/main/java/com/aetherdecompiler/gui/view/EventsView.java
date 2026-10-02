@@ -1,21 +1,20 @@
 /*
- * aether-decompiler — an independent, reusable JVM decompilation engine.
+ * aether-decompiler —— 一个独立、可复用的 JVM 反编译引擎。
  * Copyright 2026 Jerry Zhu (Zeek) <zhujiejava1@gmail.com>
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+ * 依据 Apache License, Version 2.0（下称“本许可证”）授权；
+ * 除非遵守本许可证，否则你不得使用本文件。
+ * 你可以在以下地址获取本许可证副本：
  *
  *     http://www.apache.org/licenses/LICENSE-2.0
  *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * 除非适用法律要求或书面同意，依据本许可证分发的软件
+ * 均按“原样（AS IS）”提供，不附带任何明示或默示的担保，
+ * 包括但不限于对适销性、特定用途适用性的担保。
+ * 关于本许可证下具体权限与限制的表述，请参见本许可证。
  *
  * @author Jerry Zhu (Zeek)
- * "Run the Code, Run the World!"
+ * “Run the Code, Run the World!”
  */
 package com.aetherdecompiler.gui.view;
 
@@ -29,12 +28,10 @@ import javafx.scene.layout.Priority;
 import javafx.scene.layout.VBox;
 
 /**
- * The event-stream view: a live log of pipeline events published on the engine's
- * bus. This is the visible face of hard constraint #8 (every intermediate step
- * is observable).
+ * 事件流视图：发布在引擎总线上流水线事件的实时日志。这是硬性约束 #8
+ * （每一步中间结果都可观测）的可见一面。
  *
- * <p>Events may arrive from a background decompilation thread, so ingestion is
- * marshalled onto the JavaFX thread.</p>
+ * <p>事件可能来自后台反编译线程，因此摄入被编组到 JavaFX 线程上。</p>
  *
  * @author Jerry Zhu (Zeek)
  */
@@ -44,7 +41,7 @@ public final class EventsView extends VBox {
     private final ListView<String> list = new ListView<>(events);
 
     /**
-     * Create the event view.
+     * 创建事件视图。
      */
     public EventsView() {
         getStyleClass().add("events-view");
@@ -65,9 +62,9 @@ public final class EventsView extends VBox {
     }
 
     /**
-     * Append one engine event to the log (thread-safe).
+     * 向日志追加一个引擎事件（线程安全）。
      *
-     * @param event the event to log
+     * @param event 要记录的事件
      */
     public void append(AetherEvent event) {
         String line = "[" + event.phase() + "/" + event.kind() + "]  " + event.message();
@@ -80,7 +77,7 @@ public final class EventsView extends VBox {
         });
     }
 
-    /** Clear the log. */
+    /** 清空日志。 */
     public void clear() {
         Platform.runLater(events::clear);
     }

@@ -1,21 +1,20 @@
 /*
- * aether-decompiler — an independent, reusable JVM decompilation engine.
+ * aether-decompiler —— 一个独立、可复用的 JVM 反编译引擎。
  * Copyright 2026 Jerry Zhu (Zeek) <zhujiejava1@gmail.com>
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+ * 依据 Apache License, Version 2.0（下称“本许可证”）授权；
+ * 除非遵守本许可证，否则你不得使用本文件。
+ * 你可以在以下地址获取本许可证副本：
  *
  *     http://www.apache.org/licenses/LICENSE-2.0
  *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * 除非适用法律要求或书面同意，依据本许可证分发的软件
+ * 均按“原样（AS IS）”提供，不附带任何明示或默示的担保，
+ * 包括但不限于对适销性、特定用途适用性的担保。
+ * 关于本许可证下具体权限与限制的表述，请参见本许可证。
  *
  * @author Jerry Zhu (Zeek)
- * "Run the Code, Run the World!"
+ * “Run the Code, Run the World!”
  */
 package com.aetherdecompiler.plugins.render.dot;
 
@@ -29,21 +28,20 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Official {@link RenderPlugin}: renders a control-flow graph as Graphviz DOT.
+ * 官方 {@link RenderPlugin}：把控制流图渲染为 Graphviz DOT。
  *
- * <p>This is the architectural proof-of-concept for Phase 1. The kernel never
- * knew DOT existed; it produced a neutral {@link CfgView} and this plugin mapped
- * it to a text notation. A future Java renderer plugs into exactly the same
- * seam. The plugin depends only on {@code aether-plugin-api}.</p>
+ * <p>这是 Phase 1 的架构概念验证。内核从不知道 DOT 的存在；它产出一个中性的
+ * {@link CfgView}，而本插件把它映射为一种文本记号。未来的 Java 渲染器会接入
+ * 完全相同的接缝。本插件仅依赖 {@code aether-plugin-api}。</p>
  *
- * <p>Story analogy: the same blueprint can be printed as a wiring diagram. The
- * architect never drew a wire; the printer did.</p>
+ * <p>故事类比：同一张蓝图可以打印成布线图。建筑师从未画过一根线；
+ * 是打印机画的。</p>
  *
  * @author Jerry Zhu (Zeek)
  */
 public final class DotRenderPlugin implements RenderPlugin {
 
-    /** Stable plugin id. */
+    /** 稳定的插件 id。 */
     public static final String ID = "render.dot";
 
     @Override
@@ -72,11 +70,11 @@ public final class DotRenderPlugin implements RenderPlugin {
     }
 
     /**
-     * Render a neutral CFG view to DOT text. Public so tests and applications
-     * can call it directly without the plugin host.
+     * 把中性的 CFG 视图渲染为 DOT 文本。公开是为了让测试与应用
+     * 无需插件宿主即可直接调用它。
      *
-     * @param cfg the control-flow graph view
-     * @return Graphviz DOT source
+     * @param cfg 控制流图视图
+     * @return Graphviz DOT 源码
      */
     public String renderCfg(CfgView cfg) {
         List<String> insns = cfg.insnTexts();

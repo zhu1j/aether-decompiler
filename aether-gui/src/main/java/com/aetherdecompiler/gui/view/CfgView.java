@@ -1,21 +1,20 @@
 /*
- * aether-decompiler — an independent, reusable JVM decompilation engine.
+ * aether-decompiler —— 一个独立、可复用的 JVM 反编译引擎。
  * Copyright 2026 Jerry Zhu (Zeek) <zhujiejava1@gmail.com>
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+ * 依据 Apache License, Version 2.0（下称“本许可证”）授权；
+ * 除非遵守本许可证，否则你不得使用本文件。
+ * 你可以在以下地址获取本许可证副本：
  *
  *     http://www.apache.org/licenses/LICENSE-2.0
  *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * 除非适用法律要求或书面同意，依据本许可证分发的软件
+ * 均按“原样（AS IS）”提供，不附带任何明示或默示的担保，
+ * 包括但不限于对适销性、特定用途适用性的担保。
+ * 关于本许可证下具体权限与限制的表述，请参见本许可证。
  *
  * @author Jerry Zhu (Zeek)
- * "Run the Code, Run the World!"
+ * “Run the Code, Run the World!”
  */
 package com.aetherdecompiler.gui.view;
 
@@ -34,20 +33,19 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * The control-flow graph view: a Canvas-free, node-based renderer.
+ * 控制流图视图：一个不使用 Canvas 的、基于节点的渲染器。
  *
- * <p>Deliberately built from JavaFX {@code Shape}/{@code Text} nodes rather than
- * a raw {@code Canvas}, so the graph is styleable by CSS skins (each node is a
- * {@code Rectangle} carrying a style class) and so it can be scrolled naturally.
- * Exception edges are drawn distinct from normal edges.</p>
+ * <p>刻意由 JavaFX 的 {@code Shape}/{@code Text} 节点构建，而不用原始
+ * {@code Canvas}，这样该图便可由 CSS 皮肤设定样式（每个节点是一个携带
+ * 样式类的 {@code Rectangle}），也能被自然地滚动。异常边与普通边的
+ * 绘制方式不同。</p>
  *
- * <p>It consumes the neutral {@code com.aetherdecompiler.api.CfgView} from the
- * plugin API, referenced by its fully-qualified name because this view class
- * shares the simple name {@code CfgView}. The view therefore never depends on
- * the kernel's concrete CFG type.</p>
+ * <p>它消费插件 API 中中性的 {@code com.aetherdecompiler.api.CfgView}，
+ * 以全限定名引用，因为本视图类的简单名也叫 {@code CfgView}。因此该视图
+ * 永不依赖内核的具体 CFG 类型。</p>
  *
- * <p>Story analogy: a wall-map of a road network drawn with removable stencils —
- * each junction is a placard you can repaint when the decor changes.</p>
+ * <p>故事类比：一幅用可移除模板绘制的路网墙图 —— 每个路口都是一块可在
+ * 装饰变化时重新上色的标牌。</p>
  *
  * @author Jerry Zhu (Zeek)
  */
@@ -61,7 +59,7 @@ public final class CfgView extends ScrollPane {
     private final Pane canvas = new Pane();
 
     /**
-     * Create an empty CFG view.
+     * 创建一个空的 CFG 视图。
      */
     public CfgView() {
         getStyleClass().add("cfg-view");
@@ -71,9 +69,9 @@ public final class CfgView extends ScrollPane {
     }
 
     /**
-     * Render a control-flow graph.
+     * 渲染一个控制流图。
      *
-     * @param cfg the neutral CFG view (may be {@code null})
+     * @param cfg 中性的 CFG 视图（可为 {@code null}）
      */
     public void render(com.aetherdecompiler.api.CfgView cfg) {
         canvas.getChildren().clear();
@@ -152,7 +150,7 @@ public final class CfgView extends ScrollPane {
         if (exception) {
             line.getStyleClass().add("cfg-edge-exception");
         }
-        // Arrow head at the end point.
+        // 终点处的箭头。
         double angle = Math.atan2(ey - sy, ex - sx);
         double size = 8;
         Polygon arrow = new Polygon(

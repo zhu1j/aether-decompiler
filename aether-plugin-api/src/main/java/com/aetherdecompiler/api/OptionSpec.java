@@ -1,53 +1,50 @@
 /*
- * aether-decompiler — an independent, reusable JVM decompilation engine.
+ * aether-decompiler —— 一个独立、可复用的 JVM 反编译引擎。
  * Copyright 2026 Jerry Zhu (Zeek) <zhujiejava1@gmail.com>
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+ * 依据 Apache License, Version 2.0（下称“本许可证”）授权；
+ * 除非遵守本许可证，否则你不得使用本文件。
+ * 你可以在以下地址获取本许可证副本：
  *
  *     http://www.apache.org/licenses/LICENSE-2.0
  *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * 除非适用法律要求或书面同意，依据本许可证分发的软件
+ * 均按“原样（AS IS）”提供，不附带任何明示或默示的担保，
+ * 包括但不限于对适销性、特定用途适用性的担保。
+ * 关于本许可证下具体权限与限制的表述，请参见本许可证。
  *
  * @author Jerry Zhu (Zeek)
- * "Run the Code, Run the World!"
+ * “Run the Code, Run the World!”
  */
 package com.aetherdecompiler.api;
 
 import java.util.Objects;
 
 /**
- * Declarative metadata for a single configuration option.
+ * 单个配置选项的声明式元数据。
  *
- * <p>Plugins declare their options as {@code OptionSpec}s and register them in
- * the {@link OptionRegistry}. The kernel and application layers can then
- * discover, validate, document, and parse those options generically — without
- * knowing anything about which plugin declared them.</p>
+ * <p>插件把它们的选项声明为 {@code OptionSpec} 并注册到
+ * {@link OptionRegistry}。内核与应用层随后便能以通用方式发现、校验、编写
+ * 文档并解析这些选项 —— 而无需知道是哪个插件声明了它们。</p>
  *
- * <p>Story analogy: this is the label on a control-panel switch: its name, its
- * physical type, its factory default, and the sticker that explains it.</p>
+ * <p>故事类比：这是控制面板某个开关上的标签：它的名称、它的物理类型、
+ * 它的出厂默认值，以及解释它的贴纸。</p>
  *
  * @author Jerry Zhu (Zeek)
  */
 public final class OptionSpec {
 
     /**
-     * The value domain an option accepts. Kept deliberately small and
-     * dependency-free.
+     * 选项所接受的值域。刻意保持小巧且无依赖。
      */
     public enum Kind {
-        /** A yes/no flag. */
+        /** 是/否标志。 */
         BOOLEAN,
-        /** A whole number. */
+        /** 整数。 */
         INTEGER,
-        /** A long integer. */
+        /** 长整数。 */
         LONG,
-        /** Arbitrary text. */
+        /** 任意文本。 */
         STRING
     }
 
@@ -67,12 +64,12 @@ public final class OptionSpec {
     }
 
     /**
-     * @param key          the option key, e.g. {@code "output.dir"}
-     * @param kind         the value domain
-     * @param defaultValue the default value as text (may be {@code null})
-     * @param description  human help text
-     * @param declaredBy   the declaring plugin id (or {@code "aether"} for core)
-     * @return a new spec
+     * @param key          选项键，例如 {@code "output.dir"}
+     * @param kind         值域
+     * @param defaultValue 文本形式的默认值（可为 {@code null}）
+     * @param description  人类帮助文本
+     * @param declaredBy   声明它的插件 id（内核则为 {@code "aether"}）
+     * @return 新的 spec
      */
     public static OptionSpec of(String key, Kind kind, String defaultValue,
                                 String description, String declaredBy) {
@@ -80,48 +77,48 @@ public final class OptionSpec {
     }
 
     /**
-     * @param key         the option key
-     * @param defaultValue the default text value
-     * @param description help text
-     * @param declaredBy  the declaring plugin id
-     * @return a {@code STRING} spec
+     * @param key         选项键
+     * @param defaultValue 默认文本值
+     * @param description 帮助文本
+     * @param declaredBy  声明它的插件 id
+     * @return 一个 {@code STRING} spec
      */
     public static OptionSpec string(String key, String defaultValue, String description, String declaredBy) {
         return new OptionSpec(key, Kind.STRING, defaultValue, description, declaredBy);
     }
 
     /**
-     * @param key         the option key
-     * @param defaultValue the default boolean as text
-     * @param description help text
-     * @param declaredBy  the declaring plugin id
-     * @return a {@code BOOLEAN} spec
+     * @param key         选项键
+     * @param defaultValue 文本形式的默认布尔值
+     * @param description 帮助文本
+     * @param declaredBy  声明它的插件 id
+     * @return 一个 {@code BOOLEAN} spec
      */
     public static OptionSpec bool(String key, boolean defaultValue, String description, String declaredBy) {
         return new OptionSpec(key, Kind.BOOLEAN, Boolean.toString(defaultValue), description, declaredBy);
     }
 
-    /** @return the option key */
+    /** @return 选项键 */
     public String key() {
         return key;
     }
 
-    /** @return the value domain */
+    /** @return 值域 */
     public Kind kind() {
         return kind;
     }
 
-    /** @return the default value as text, or {@code null} */
+    /** @return 文本形式的默认值，或 {@code null} */
     public String defaultValue() {
         return defaultValue;
     }
 
-    /** @return the human help text */
+    /** @return 人类帮助文本 */
     public String description() {
         return description;
     }
 
-    /** @return the declaring plugin id, or {@code "aether"} for core */
+    /** @return 声明它的插件 id；内核则为 {@code "aether"} */
     public String declaredBy() {
         return declaredBy;
     }

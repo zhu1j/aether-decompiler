@@ -1,21 +1,20 @@
 /*
- * aether-decompiler — an independent, reusable JVM decompilation engine.
+ * aether-decompiler —— 一个独立、可复用的 JVM 反编译引擎。
  * Copyright 2026 Jerry Zhu (Zeek) <zhujiejava1@gmail.com>
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+ * 依据 Apache License, Version 2.0（下称“本许可证”）授权；
+ * 除非遵守本许可证，否则你不得使用本文件。
+ * 你可以在以下地址获取本许可证副本：
  *
  *     http://www.apache.org/licenses/LICENSE-2.0
  *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * 除非适用法律要求或书面同意，依据本许可证分发的软件
+ * 均按“原样（AS IS）”提供，不附带任何明示或默示的担保，
+ * 包括但不限于对适销性、特定用途适用性的担保。
+ * 关于本许可证下具体权限与限制的表述，请参见本许可证。
  *
  * @author Jerry Zhu (Zeek)
- * "Run the Code, Run the World!"
+ * “Run the Code, Run the World!”
  */
 package com.aetherdecompiler.core.cfg;
 
@@ -29,17 +28,14 @@ import java.util.List;
 import java.util.Objects;
 
 /**
- * An immutable control-flow graph for one method.
+ * 单个方法的不可变控制流图。
  *
- * <p>A CFG is the method's instruction list plus the partition of those
- * instructions into {@link BasicBlock}s and the edges between them. It is the
- * kernel's first structural view of a method and the substrate for the
- * dominator tree, loop detection (Phase 1) and structured reconstruction
- * (Phase 3).</p>
+ * <p>CFG 就是该方法的指令列表，加上把这些指令划分成的 {@link BasicBlock}
+ * 以及它们之间的边。它是内核对一个方法的第一层结构化视图，也是支配树、
+ * 循环检测（Phase 1）与结构化重建（Phase 3）的基底。</p>
  *
- * <p>Story analogy: a city road map. The instructions are addresses; the basic
- * blocks are intersections where route choices happen; the edges are the roads
- * between them.</p>
+ * <p>故事类比：一张城市路网图。指令是地址；基本块是发生路线选择的
+ * 路口；边是它们之间的道路。</p>
  *
  * @author Jerry Zhu (Zeek)
  */
@@ -51,10 +47,10 @@ public final class ControlFlowGraph implements CfgView {
     private final List<BasicBlock> blocks;
 
     /**
-     * @param ownerClass   the owning class internal name
-     * @param methodId     the method identifier {@code name + descriptor}
-     * @param instructions the full instruction list
-     * @param blocks       the basic blocks, indexed by their id
+     * @param ownerClass   所属类的内部名
+     * @param methodId     方法标识符 {@code name + descriptor}
+     * @param instructions 完整指令列表
+     * @param blocks       基本块，按其 id 索引
      */
     public ControlFlowGraph(String ownerClass, String methodId,
                             List<Insn> instructions, List<BasicBlock> blocks) {
@@ -64,22 +60,22 @@ public final class ControlFlowGraph implements CfgView {
         this.blocks = List.copyOf(blocks);
     }
 
-    /** @return the owning class internal name */
+    /** @return 所属类的内部名 */
     public String ownerClass() {
         return ownerClass;
     }
 
-    /** @return the method identifier */
+    /** @return 方法标识符 */
     public String methodId() {
         return methodId;
     }
 
-    /** @return the full instruction list */
+    /** @return 完整指令列表 */
     public List<Insn> instructions() {
         return instructions;
     }
 
-    /** @return the basic blocks, indexed by id */
+    /** @return 基本块，按 id 索引 */
     public List<BasicBlock> blocks() {
         return blocks;
     }
@@ -94,16 +90,16 @@ public final class ControlFlowGraph implements CfgView {
     }
 
     /**
-     * @param id a block id
-     * @return the block with that id
+     * @param id 块 id
+     * @return 具有该 id 的块
      */
     public BasicBlock block(int id) {
         return blocks.get(id);
     }
 
     /**
-     * @param insnIndex an instruction index
-     * @return the block that contains that instruction, or {@code null}
+     * @param insnIndex 指令索引
+     * @return 包含该指令的块，若无则返回 {@code null}
      */
     public BasicBlock blockOfInsn(int insnIndex) {
         for (BasicBlock block : blocks) {
@@ -114,12 +110,12 @@ public final class ControlFlowGraph implements CfgView {
         return null;
     }
 
-    /** @return the number of blocks */
+    /** @return 块的数量 */
     public int blockCount() {
         return blocks.size();
     }
 
-    /** @return the number of edges, counting normal and exception edges */
+    /** @return 边的数量，含普通边与异常边 */
     public int edgeCount() {
         int edges = 0;
         for (BasicBlock block : blocks) {

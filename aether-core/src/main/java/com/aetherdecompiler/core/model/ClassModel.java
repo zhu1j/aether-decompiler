@@ -1,21 +1,20 @@
 /*
- * aether-decompiler — an independent, reusable JVM decompilation engine.
+ * aether-decompiler —— 一个独立、可复用的 JVM 反编译引擎。
  * Copyright 2026 Jerry Zhu (Zeek) <zhujiejava1@gmail.com>
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+ * 依据 Apache License, Version 2.0（下称“本许可证”）授权；
+ * 除非遵守本许可证，否则你不得使用本文件。
+ * 你可以在以下地址获取本许可证副本：
  *
  *     http://www.apache.org/licenses/LICENSE-2.0
  *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * 除非适用法律要求或书面同意，依据本许可证分发的软件
+ * 均按“原样（AS IS）”提供，不附带任何明示或默示的担保，
+ * 包括但不限于对适销性、特定用途适用性的担保。
+ * 关于本许可证下具体权限与限制的表述，请参见本许可证。
  *
  * @author Jerry Zhu (Zeek)
- * "Run the Code, Run the World!"
+ * “Run the Code, Run the World!”
  */
 package com.aetherdecompiler.core.model;
 
@@ -27,15 +26,14 @@ import java.util.Objects;
 import java.util.Optional;
 
 /**
- * An immutable class model — the root artefact of the kernel's model layer.
+ * 不可变的类模型 —— 内核模型层的根产物。
  *
- * <p>Produced once from class bytes and then shared freely: it is safe to cache,
- * read from many threads, and stream in parallel. It contains only bytecode
- * facts (names, descriptors, flags, members) and no Java-syntax notion.</p>
+ * <p>由类字节一次性产出，之后可自由共享：它可以安全地被缓存、被多线程读取、
+ * 被并行流式处理。它只包含字节码事实（名称、描述符、标志、成员），不含任何
+ * Java 语法概念。</p>
  *
- * <p>Story analogy: the master blueprint of one building — its address, its
- * floor plan (methods), and its fixed fittings (fields) — copied rather than
- * redrawn each time someone needs to look at it.</p>
+ * <p>故事类比：一栋建筑的总蓝图 —— 它的地址、楼层平面图（方法）与固定装置
+ * （字段）—— 每当有人要看时就复印一份，而不是重新绘制。</p>
  *
  * @author Jerry Zhu (Zeek)
  */
@@ -52,15 +50,15 @@ public final class ClassModel implements IRObject {
     private final List<MethodModel> methods;
 
     /**
-     * @param name         the internal binary name, e.g. {@code "com/foo/Bar"}
-     * @param superName    the internal super-class name, or {@code null} for {@code Object}
-     * @param interfaces   the internal interface names (never {@code null})
-     * @param access       the raw class access flags
-     * @param majorVersion the class-file major version
-     * @param minorVersion the class-file minor version
-     * @param signature    the generic class signature, or {@code null}
-     * @param fields       the immutable field list (never {@code null})
-     * @param methods      the immutable method list (never {@code null})
+     * @param name         内部二进制名，例如 {@code "com/foo/Bar"}
+     * @param superName    内部父类名；{@code Object} 时为 {@code null}
+     * @param interfaces   内部接口名（永不为 {@code null}）
+     * @param access       原始类访问标志
+     * @param majorVersion 类文件主版本号
+     * @param minorVersion 类文件次版本号
+     * @param signature    泛型类签名，或 {@code null}
+     * @param fields       不可变字段列表（永不为 {@code null}）
+     * @param methods      不可变方法列表（永不为 {@code null}）
      */
     public ClassModel(String name, String superName, List<String> interfaces, int access,
                       int majorVersion, int minorVersion, String signature,
@@ -76,60 +74,60 @@ public final class ClassModel implements IRObject {
         this.methods = List.copyOf(methods);
     }
 
-    /** @return the internal binary name */
+    /** @return 内部二进制名 */
     public String name() {
         return name;
     }
 
-    /** @return the internal super-class name, or {@code null} */
+    /** @return 内部父类名，或 {@code null} */
     public String superName() {
         return superName;
     }
 
-    /** @return the internal interface names */
+    /** @return 内部接口名 */
     public List<String> interfaces() {
         return interfaces;
     }
 
-    /** @return the raw class access flags */
+    /** @return 原始类访问标志 */
     public int access() {
         return access;
     }
 
-    /** @return the class-file major version */
+    /** @return 类文件主版本号 */
     public int majorVersion() {
         return majorVersion;
     }
 
-    /** @return the class-file minor version */
+    /** @return 类文件次版本号 */
     public int minorVersion() {
         return minorVersion;
     }
 
-    /** @return the generic class signature, or {@code null} */
+    /** @return 泛型类签名，或 {@code null} */
     public String signature() {
         return signature;
     }
 
-    /** @return the immutable field list */
+    /** @return 不可变字段列表 */
     public List<FieldModel> fields() {
         return fields;
     }
 
-    /** @return the immutable method list */
+    /** @return 不可变方法列表 */
     public List<MethodModel> methods() {
         return methods;
     }
 
-    /** @return {@code true} if this class is an interface */
+    /** @return 若该类是接口则返回 {@code true} */
     public boolean isInterface() {
         return (access & AccessFlags.INTERFACE) != 0;
     }
 
     /**
-     * @param name      the method name
-     * @param descriptor the method descriptor
-     * @return the first matching method, if present
+     * @param name       方法名
+     * @param descriptor 方法描述符
+     * @return 第一个匹配的方法（若存在）
      */
     public Optional<MethodModel> findMethod(String name, String descriptor) {
         return methods.stream()
@@ -137,7 +135,7 @@ public final class ClassModel implements IRObject {
                 .findFirst();
     }
 
-    /** @return the dotted, human-readable name, e.g. {@code com.foo.Bar} */
+    /** @return 点分的人类可读名，例如 {@code com.foo.Bar} */
     public String dottedName() {
         return name.replace('/', '.');
     }

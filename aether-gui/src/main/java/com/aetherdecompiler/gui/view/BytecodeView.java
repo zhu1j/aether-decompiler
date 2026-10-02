@@ -1,21 +1,20 @@
 /*
- * aether-decompiler — an independent, reusable JVM decompilation engine.
+ * aether-decompiler —— 一个独立、可复用的 JVM 反编译引擎。
  * Copyright 2026 Jerry Zhu (Zeek) <zhujiejava1@gmail.com>
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+ * 依据 Apache License, Version 2.0（下称“本许可证”）授权；
+ * 除非遵守本许可证，否则你不得使用本文件。
+ * 你可以在以下地址获取本许可证副本：
  *
  *     http://www.apache.org/licenses/LICENSE-2.0
  *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * 除非适用法律要求或书面同意，依据本许可证分发的软件
+ * 均按“原样（AS IS）”提供，不附带任何明示或默示的担保，
+ * 包括但不限于对适销性、特定用途适用性的担保。
+ * 关于本许可证下具体权限与限制的表述，请参见本许可证。
  *
  * @author Jerry Zhu (Zeek)
- * "Run the Code, Run the World!"
+ * “Run the Code, Run the World!”
  */
 package com.aetherdecompiler.gui.view;
 
@@ -29,20 +28,20 @@ import javafx.scene.layout.VBox;
 import java.util.List;
 
 /**
- * The bytecode view: a list of bytecode instructions with offset, index, and
- * rendered operand text, with a highlight method for three-view linkage.
+ * 字节码视图：一个字节码指令列表，含偏移、索引与渲染后的操作数文本，
+ * 并带有一个用于三视图联动的高亮方法。
  *
  * @author Jerry Zhu (Zeek)
  */
 public final class BytecodeView extends VBox {
 
     /**
-     * One displayable bytecode row.
+     * 一行可显示的字节码。
      *
-     * @param offset   the bytecode offset
-     * @param index    the instruction ordinal
-     * @param mnemonic the opcode mnemonic
-     * @param operand  the rendered operand, possibly empty
+     * @param offset   字节码偏移
+     * @param index    指令序号
+     * @param mnemonic 操作码助记符
+     * @param operand  渲染后的操作数，可能为空
      * @author Jerry Zhu (Zeek)
      */
     public record Row(int offset, int index, String mnemonic, String operand) {
@@ -55,7 +54,7 @@ public final class BytecodeView extends VBox {
     private final ListView<Row> list = new ListView<>();
 
     /**
-     * Create the bytecode view.
+     * 创建字节码视图。
      */
     public BytecodeView() {
         getStyleClass().add("bytecode-view");
@@ -72,7 +71,7 @@ public final class BytecodeView extends VBox {
     }
 
     /**
-     * @param rows the rows to display
+     * @param rows 要显示的行
      */
     public void setRows(List<Row> rows) {
         ObservableList<Row> data = FXCollections.observableArrayList(rows);
@@ -80,9 +79,9 @@ public final class BytecodeView extends VBox {
     }
 
     /**
-     * Highlight a row by index.
+     * 按索引高亮一行。
      *
-     * @param index the instruction ordinal to select
+     * @param index 要选中的指令序号
      */
     public void highlight(int index) {
         for (Row row : list.getItems()) {

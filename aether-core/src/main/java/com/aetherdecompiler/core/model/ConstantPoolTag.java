@@ -1,72 +1,70 @@
 /*
- * aether-decompiler — an independent, reusable JVM decompilation engine.
+ * aether-decompiler —— 一个独立、可复用的 JVM 反编译引擎。
  * Copyright 2026 Jerry Zhu (Zeek) <zhujiejava1@gmail.com>
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+ * 依据 Apache License, Version 2.0（下称“本许可证”）授权；
+ * 除非遵守本许可证，否则你不得使用本文件。
+ * 你可以在以下地址获取本许可证副本：
  *
  *     http://www.apache.org/licenses/LICENSE-2.0
  *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * 除非适用法律要求或书面同意，依据本许可证分发的软件
+ * 均按“原样（AS IS）”提供，不附带任何明示或默示的担保，
+ * 包括但不限于对适销性、特定用途适用性的担保。
+ * 关于本许可证下具体权限与限制的表述，请参见本许可证。
  *
  * @author Jerry Zhu (Zeek)
- * "Run the Code, Run the World!"
+ * “Run the Code, Run the World!”
  */
 package com.aetherdecompiler.core.model;
 
 /**
- * Constant pool tag values defined by the JVM specification.
+ * JVM 规范定义的常量池标签值。
  *
- * <p>These constants are part of the bytecode <em>model</em>, not of any
- * particular library. Recording them here keeps the vocabulary of the data
- * model self-contained: the kernel names the tags itself rather than borrowing
- * names from ASM.</p>
+ * <p>这些常量属于字节码<em>模型</em>，而不属于任何特定的库。把它们记录在这里
+ * 可让数据模型的词汇表保持自包含：内核自己为标签命名，而不是向 ASM
+ * 借用名称。</p>
  *
- * <p>Story analogy: a parts catalogue's item numbers, written on the catalogue
- * page itself — the warehouse that stocks the parts is a separate matter.</p>
+ * <p>故事类比：零件目录上的物品编号，写在目录页本身 —— 库存这些零件的仓库
+ * 则是另一回事。</p>
  *
  * @author Jerry Zhu (Zeek)
  */
 public final class ConstantPoolTag {
 
-    /** UTF-8 string. */
+    /** UTF-8 字符串。 */
     public static final int UTF8 = 1;
-    /** Integer. */
+    /** 整数。 */
     public static final int INTEGER = 3;
-    /** Float. */
+    /** 单精度浮点数。 */
     public static final int FLOAT = 4;
-    /** Long. */
+    /** 长整数。 */
     public static final int LONG = 5;
-    /** Double. */
+    /** 双精度浮点数。 */
     public static final int DOUBLE = 6;
-    /** Class reference. */
+    /** 类引用。 */
     public static final int CLASS = 7;
-    /** String reference. */
+    /** 字符串引用。 */
     public static final int STRING = 8;
-    /** Field reference. */
+    /** 字段引用。 */
     public static final int FIELDREF = 9;
-    /** Method reference. */
+    /** 方法引用。 */
     public static final int METHODREF = 10;
-    /** Interface method reference. */
+    /** 接口方法引用。 */
     public static final int INTERFACE_METHODREF = 11;
-    /** Name and type. */
+    /** 名称与类型。 */
     public static final int NAME_AND_TYPE = 12;
-    /** Method handle. */
+    /** 方法句柄。 */
     public static final int METHOD_HANDLE = 15;
-    /** Method type. */
+    /** 方法类型。 */
     public static final int METHOD_TYPE = 16;
-    /** Dynamically computed constant. */
+    /** 动态计算的常量。 */
     public static final int DYNAMIC = 17;
-    /** Invoke dynamic. */
+    /** 动态调用（invokedynamic）。 */
     public static final int INVOKE_DYNAMIC = 18;
-    /** Module. */
+    /** 模块。 */
     public static final int MODULE = 19;
-    /** Package. */
+    /** 包。 */
     public static final int PACKAGE = 20;
 
     private ConstantPoolTag() {
