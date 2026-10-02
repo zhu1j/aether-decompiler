@@ -429,7 +429,7 @@ public final class AetherGuiApp extends Application {
         Label title = new Label("背景库");
         title.getStyleClass().add("dialog-title");
         Label hint = new Label("支持 PNG/JPG/GIF 等图片、MP4 等视频，以及 Wallpaper Engine 工程文件夹（含 project.json）。\n"
-                + "背景以半透明呈现，可用下方滑块调节透明度与模糊。");
+                + "导入 Wallpaper 工程时请选择<整个工程文件夹>；背景以半透明呈现，可用下方滑块调节透明度、模糊与填充。");
         hint.getStyleClass().add("dialog-hint");
         hint.setWrapText(true);
 
@@ -502,7 +502,15 @@ public final class AetherGuiApp extends Application {
         openFolder.getStyleClass().add("tool-button");
         openFolder.setOnAction(e -> openFolder(backdropLibrary.ensureRoot()));
 
-        HBox importRow = new HBox(8, importFile, importWe, openFolder);
+        // 刷新：重新扫描背景目录（用户手动往目录里放了新的工程/图片时很有用）。
+        Button refresh = new Button("刷新列表");
+        refresh.getStyleClass().add("tool-button");
+        refresh.setOnAction(e -> {
+            gallery.setItems(FXCollections.observableArrayList(backdropLibrary.list()));
+            statusLabel.setText("已刷新背景列表（共 " + gallery.getItems().size() + " 项）");
+        });
+
+        HBox importRow = new HBox(8, importFile, importWe, openFolder, refresh);
         importRow.setAlignment(Pos.CENTER_LEFT);
         HBox actionRow = new HBox(8, apply, remove);
         actionRow.setAlignment(Pos.CENTER_RIGHT);
@@ -885,9 +893,19 @@ public final class AetherGuiApp extends Application {
             VBox text = new VBox(2, name, kind);
             text.setAlignment(Pos.CENTER_LEFT);
 
+            // 若有描述（Wallpaper Engine 工程的 description），显示一行淡色副标题。
+            if (!bd.description().isBlank()) {
+                Label desc = new Label(bd.description());
+                desc.getStyleClass().add("bd-desc");
+                desc.setMaxWidth(360);
+                text.getChildren().add(desc);
+            }
+
             HBox row = new HBox(10, holder, text);
             row.setAlignment(Pos.CENTER_LEFT);
             row.setPadding(new Insets(4, 6, 4, 6));
+            // 悬停提示：显示媒体文件的完整路径，便于分辨同名工程。
+            setTooltip(new Tooltip(bd.media().toString()));
             setText(null);
             setGraphic(row);
         }

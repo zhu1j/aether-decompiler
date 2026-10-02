@@ -22,8 +22,7 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.LinkedHashSet;
-import java.util.Set;
+import java.util.Locale;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -44,49 +43,46 @@ import java.util.regex.Pattern;
  * }
  * }</pre>
  *
- * <p>该解析器刻意是一个极小、无依赖、宽容的读取器：它用正则表达式查找少数
- * 几个具名字符串键，而不是把 JSON 库拉进 GUI。Wallpaper Engine 文件简单而
- * 稳定，缺失的键会被当作“不存在”而非致命错误，因此一个不寻常的工程仍能通过
- * 回退到文件夹中的首个媒体文件而产出可用的背景。</p>
+ * <p>该解析器刻意是一个极小、无依赖、宽容的读取器：它用一个<strong>深度感知</strong>
+ * 的扫描器读取少数几个具名字符串键，而不是把 JSON 库拉进 GUI。之所以必须是
+ * 深度感知的，是因为 Wallpaper Engine 的真实文件会在嵌套对象里复用同名的键
+ * —— 例如 {@code schemecolor} 对象内部也含有 {@code "type" : "color"}，而它
+ * 往往排在顶层 {@code "type" : "video"} 之前。若用朴素的“首个匹配”正则，就会
+ * 把工程类型误读为 {@code color}，进而让视频壁纸被当成无效背景。本读取器只在
+ * 根对象的深度上匹配这些键，因此同名的嵌套键不会再造成干扰。</p>
  *
  * <p>故事类比：一位双语助理，只需在标签上认出几个已知的词，
- * 而不必通读整本手册。</p>
+ * 而不必通读整本手册 —— 而且他知道要看最外层那张标签，
+ * 而不是抽屉深处的一张。</p>
  *
  * @author Jerry Zhu (Zeek)
  */
 public final class WallpaperProject {
 
-    private static final Pattern FILE_KEY = stringKey("file");
-    private static final Pattern PREVIEW_KEY = stringKey("preview");
-    private static final Pattern TITLE_KEY = stringKey("title");
-    private static final Pattern TYPE_KEY = stringKey("type");
-    // “schemecolor” 映射到一个对象，所以只匹配该键；其 “value” 字符串
-    // 在此键之后单独定位。
     private static final Pattern SCHEME_COLOR_KEY =
             Pattern.compile("\"schemecolor\"\\s*:");
-    private static final Pattern VALUE_KEY = stringKey("value");
+    private static final Pattern VALUE_KEY =
+            Pattern.compile("\"value\"\\s*:\\s*\"([^\"]*)\"");
 
     private final Path directory;
     private final Path projectJson;
     private final String title;
     private final String type;
+    private final String description;
     private final Path media;
     private final Path preview;
     private final String schemeColor;
 
     private WallpaperProject(Path directory, Path projectJson, String title, String type,
-                             Path media, Path preview, String schemeColor) {
+                             String description, Path media, Path preview, String schemeColor) {
         this.directory = directory;
         this.projectJson = projectJson;
         this.title = title;
         this.type = type;
+        this.description = description;
         this.media = media;
         this.preview = preview;
         this.schemeColor = schemeColor;
-    }
-
-    private static Pattern stringKey(String key) {
-        return Pattern.compile("\"" + Pattern.quote(key) + "\"\\s*:\\s*\"([^\"]*)\"");
     }
 
     /**
@@ -113,10 +109,12 @@ public final class WallpaperProject {
         }
         String text = Files.readString(json, StandardCharsets.UTF_8);
 
-        String file = firstMatch(text, FILE_KEY);
-        String preview = firstMatch(text, PREVIEW_KEY);
-        String title = firstMatch(text, TITLE_KEY);
-        String type = firstMatch(text, TYPE_KEY);
+        // 只读取根对象深度上的键，避开 schemecolor 等嵌套对象里的同名键。
+        String file = topLevelString(text, "file");
+        String preview = topLevelString(text, "preview");
+        String title = topLevelString(text, "title");
+        String type = topLevelString(text, "type");
+        String description = topLevelString(text, "description");
         String schemeColor = parseSchemeColor(text);
 
         Path media = resolve(directory, file);
@@ -131,12 +129,17 @@ public final class WallpaperProject {
             title = directory.getFileName().toString();
         }
         return new WallpaperProject(directory, json, title, type == null ? "" : type,
-                media, thumb, schemeColor);
+                description == null ? "" : description, media, thumb, schemeColor);
     }
 
     /** @return {@code type} 字段（video / scene / web / application），已转为小写 */
     public String type() {
-        return type == null ? "" : type.toLowerCase(java.util.Locale.ROOT);
+        return type == null ? "" : type.toLowerCase(Locale.ROOT);
+    }
+
+    /** @return {@code description} 字段，或空字符串 */
+    public String description() {
+        return description == null ? "" : description;
     }
 
     /**
@@ -176,29 +179,103 @@ public final class WallpaperProject {
         return Math.max(0, Math.min(255, v));
     }
 
-    private static String firstMatch(String text, Pattern pattern) {
-        Matcher m = pattern.matcher(text);
-        return m.find() ? m.group(1) : null;
+    /**
+     * 读取某个字符串键的值，但仅当该键出现在根对象（JSON 的最外层）中时才返回。
+     *
+     * <p>实现是一个极小的字符级扫描器：它跟踪花括号/方括号的嵌套深度，并在
+     * 深度为 1（即根对象的成员位置）处匹配 {@code "key"} 后紧跟的字符串值。
+     * 与键同名的嵌套键（例如 {@code schemecolor} 内部的 {@code "type"}）位于
+     * 更深的层级，因而被自然忽略。</p>
+     *
+     * @param text 完整的 {@code project.json} 文本
+     * @param key  顶层键名（不含引号）
+     * @return 该键的字符串值；若不存在或值不是字符串则返回 {@code null}
+     */
+    private static String topLevelString(String text, String key) {
+        String needle = "\"" + key + "\"";
+        int depth = 0;
+        boolean inStr = false;
+        boolean esc = false;
+        int n = text.length();
+        for (int i = 0; i < n; i++) {
+            char c = text.charAt(i);
+            if (inStr) {
+                if (esc) {
+                    esc = false;
+                } else if (c == '\\') {
+                    esc = true;
+                } else if (c == '"') {
+                    inStr = false;
+                }
+                continue;
+            }
+            if (c == '"') {
+                if (depth == 1 && text.startsWith(needle, i)) {
+                    int j = i + needle.length();
+                    while (j < n && Character.isWhitespace(text.charAt(j))) {
+                        j++;
+                    }
+                    if (j < n && text.charAt(j) == ':') {
+                        j++;
+                        while (j < n && Character.isWhitespace(text.charAt(j))) {
+                            j++;
+                        }
+                        if (j < n && text.charAt(j) == '"') {
+                            StringBuilder sb = new StringBuilder();
+                            int k = j + 1;
+                            while (k < n && text.charAt(k) != '"') {
+                                if (text.charAt(k) == '\\' && k + 1 < n) {
+                                    k++;
+                                }
+                                sb.append(text.charAt(k));
+                                k++;
+                            }
+                            return sb.toString();
+                        }
+                    }
+                }
+                inStr = true;
+                continue;
+            }
+            if (c == '{' || c == '[') {
+                depth++;
+            } else if (c == '}' || c == ']') {
+                depth--;
+            }
+        }
+        return null;
     }
 
     private static Path resolve(Path dir, String name) {
         if (name == null || name.isBlank()) {
             return null;
         }
-        Path p = dir.resolve(name);
+        // Wallpaper Engine 有时用反斜杠书写相对路径；先规范化再解析。
+        String normalized = name.replace('\\', '/');
+        Path p = dir.resolve(normalized);
         return Files.isRegularFile(p) ? p : null;
     }
 
+    /**
+     * 当 {@code file} 缺失或不可解析时的回退：扫描文件夹，返回首个受支持的媒体，
+     * 并优先选择视频（视频壁纸工程最常见）。
+     */
     private static Path firstMedia(Path dir) {
-        Set<String> tried = new LinkedHashSet<>();
         try (var stream = Files.list(dir)) {
-            return stream.filter(Files::isRegularFile)
+            var candidates = stream.filter(Files::isRegularFile)
                     .filter(p -> Backdrop.isMedia(p.getFileName().toString()))
-                    .filter(p -> !p.getFileName().toString().toLowerCase(java.util.Locale.ROOT)
+                    .filter(p -> !p.getFileName().toString().toLowerCase(Locale.ROOT)
                             .startsWith("preview"))
                     .sorted()
-                    .findFirst()
-                    .orElse(null);
+                    .toList();
+            for (Path p : candidates) {
+                String name = p.getFileName().toString().toLowerCase(Locale.ROOT);
+                if (name.endsWith(".mp4") || name.endsWith(".m4v") || name.endsWith(".mov")
+                        || name.endsWith(".webm") || name.endsWith(".flv")) {
+                    return p;
+                }
+            }
+            return candidates.isEmpty() ? null : candidates.get(0);
         } catch (IOException ex) {
             return null;
         }
@@ -231,6 +308,6 @@ public final class WallpaperProject {
 
     /** @return 归一化为 {@link Backdrop} 的工程 */
     public Backdrop toBackdrop() {
-        return Backdrop.of(title, media, preview);
+        return Backdrop.of(title, media, preview, description);
     }
 }

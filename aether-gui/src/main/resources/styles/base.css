@@ -562,6 +562,12 @@
     -fx-font-size: 10px;
 }
 
+/* 背景条目的可选描述（取自 Wallpaper Engine 工程的 description）。 */
+.bd-desc {
+    -fx-text-fill: -ae-text-dim;
+    -fx-font-size: 10px;
+}
+
 /* 一个带小下拉箭头的工具栏按钮。 */
 .tool-button.menu {
     -fx-padding: 6 10 6 12;

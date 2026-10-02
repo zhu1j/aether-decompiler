@@ -46,12 +46,14 @@ public final class Backdrop {
     private final BackdropKind kind;
     private final Path media;
     private final Path preview;
+    private final String description;
 
-    private Backdrop(String title, BackdropKind kind, Path media, Path preview) {
+    private Backdrop(String title, BackdropKind kind, Path media, Path preview, String description) {
         this.title = title;
         this.kind = kind;
         this.media = media;
         this.preview = preview;
+        this.description = description == null ? "" : description;
     }
 
     /**
@@ -61,7 +63,18 @@ public final class Backdrop {
      * @return 一种类型由媒体扩展名推断得出的背景
      */
     public static Backdrop of(String title, Path media, Path preview) {
-        return new Backdrop(title, kindOf(media), media, preview);
+        return new Backdrop(title, kindOf(media), media, preview, "");
+    }
+
+    /**
+     * @param title       显示标题
+     * @param media       媒体文件
+     * @param preview     可选缩略图（可为 {@code null}）
+     * @param description 可选描述（来自 Wallpaper Engine 的 {@code description}）
+     * @return 一种类型由媒体扩展名推断得出的背景
+     */
+    public static Backdrop of(String title, Path media, Path preview, String description) {
+        return new Backdrop(title, kindOf(media), media, preview, description);
     }
 
     /**
@@ -123,6 +136,11 @@ public final class Backdrop {
     /** @return 缩略图；若无则返回 {@code null} */
     public Path preview() {
         return preview;
+    }
+
+    /** @return 描述；若无则为空字符串 */
+    public String description() {
+        return description;
     }
 
     /** @return 该背景是否为视频 */
