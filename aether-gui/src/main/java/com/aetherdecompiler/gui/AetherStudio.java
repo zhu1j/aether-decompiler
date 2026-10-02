@@ -48,6 +48,7 @@ import javafx.application.Application;
 import javafx.application.Platform;
 import javafx.collections.FXCollections;
 import javafx.concurrent.Task;
+import javafx.concurrent.Worker;
 import javafx.geometry.Insets;
 import javafx.geometry.Orientation;
 import javafx.geometry.Pos;
@@ -229,13 +230,25 @@ public final class AetherStudio extends Application {
     private Region buildBackdropLayer() {
         bgImage.setSmooth(true);
         bgImage.setPreserveRatio(false);
+        bgImage.setVisible(false);
 
         bgVideo.setPreserveRatio(false);
+        bgVideo.setVisible(false);
 
         // 网页型壁纸渲染器：作为背景时不可交互，且不显示右键菜单。
         bgWeb.setMouseTransparent(true);
         bgWeb.setContextMenuEnabled(false);
         bgWeb.setDisable(true);
+        // 关键修复：WebView 在未加载内容时会渲染一张“白页”，叠加半透明后形成整屏
+        // 灰白遮罩，把图片/视频壁纸一起盖灰（表现为“有层透明白遮罩”且“应用了没变化”）。
+        // 这里默认隐藏，并在页面加载成功后再淡入。
+        bgWeb.setVisible(false);
+        bgWeb.setOpacity(0);
+        bgWeb.getEngine().getLoadWorker().stateProperty().addListener((o, a, b) -> {
+            if (b == Worker.State.SUCCEEDED) {
+                bgWeb.setOpacity(1);
+            }
+        });
 
         mediaHolder.getChildren().addAll(bgImage, bgVideo, bgWeb);
         mediaHolder.getStyleClass().add("bg-layer");
@@ -282,6 +295,7 @@ public final class AetherStudio extends Application {
                             bgImage.setImage(poster);
                         }
                     }
+                    bgWeb.setOpacity(0);
                     bgWeb.getEngine().load(backdrop.media().toUri().toString());
                 } else {
                     currentBackdrop = null;
@@ -315,6 +329,14 @@ public final class AetherStudio extends Application {
                 }
             }
         }
+
+        // 只显示当前类型的渲染器，避免“白页/空层”叠加形成灰白遮罩。
+        boolean isVideo = currentBackdrop != null && currentBackdrop.kind() == BackdropKind.VIDEO
+                && videoPlayer != null;
+        boolean isWeb = currentBackdrop != null && currentBackdrop.kind() == BackdropKind.WEB;
+        bgVideo.setVisible(isVideo);
+        bgWeb.setVisible(isWeb);
+        bgImage.setVisible(bgImage.getImage() != null);
 
         boolean active = currentBackdrop != null;
         if (active) {
@@ -746,7 +768,9 @@ public final class AetherStudio extends Application {
                 return backdropLibrary.importAny(source);
             }
         };
+        beginProgress(task, true);
         task.setOnSucceeded(e -> {
+            endProgress();
             Backdrop bd = task.getValue();
             reloadGallery(gallery, null);
             gallery.getSelectionModel().select(bd);
@@ -754,6 +778,7 @@ public final class AetherStudio extends Application {
             statusLabel.setText("已导入并应用背景: " + bd.title());
         });
         task.setOnFailed(e -> {
+            endProgress();
             Throwable ex = task.getException();
             statusLabel.setText("导入失败: " + (ex == null ? "未知错误" : ex.getMessage()));
         });
@@ -781,7 +806,9 @@ public final class AetherStudio extends Application {
                 return backdropLibrary.list();
             }
         };
+        beginProgress(task, true);
         task.setOnSucceeded(e -> {
+            endProgress();
             List<Backdrop> items = task.getValue();
             gallery.setItems(FXCollections.observableArrayList(items));
             if (currentBackdrop != null && items.contains(currentBackdrop)) {
@@ -798,6 +825,7 @@ public final class AetherStudio extends Application {
             }
         });
         task.setOnFailed(e -> {
+            endProgress();
             Throwable ex = task.getException();
             String msg = "扫描背景库失败: " + (ex == null ? "未知错误" : ex.getMessage());
             statusLabel.setText(msg);
@@ -903,10 +931,9 @@ public final class AetherStudio extends Application {
                 return ok;
             }
         };
-        progress.progressProperty().bind(task.progressProperty());
+        beginProgress(task, false);
         task.setOnSucceeded(e -> {
-            progress.progressProperty().unbind();
-            progress.setProgress(0);
+            endProgress();
             int ok = task.getValue();
             refreshOutputTree();
             statusLabel.setText("已导出 " + ok + " / " + names.size() + " 个 .java 文件 \u2192 " + out);
@@ -915,14 +942,34 @@ public final class AetherStudio extends Application {
             openFolder(out);
         });
         task.setOnFailed(e -> {
-            progress.progressProperty().unbind();
-            progress.setProgress(0);
+            endProgress();
             statusLabel.setText("导出失败: " + (task.getException() == null
                     ? "未知错误" : task.getException().getMessage()));
         });
         Thread thread = new Thread(task, "aether-export");
         thread.setDaemon(true);
         thread.start();
+    }
+
+    /** 开始一个任务时显示进度条；indeterminate=true 时用滚动的不确定态动画。 */
+    private void beginProgress(Task<?> task, boolean indeterminate) {
+        progress.progressProperty().unbind();
+        if (indeterminate) {
+            progress.setProgress(ProgressBar.INDETERMINATE_PROGRESS);
+        } else {
+            progress.setProgress(0);
+            progress.progressProperty().bind(task.progressProperty());
+        }
+        progress.setVisible(true);
+        progress.setManaged(true);
+    }
+
+    /** 任务结束后隐藏进度条。 */
+    private void endProgress() {
+        progress.progressProperty().unbind();
+        progress.setProgress(0);
+        progress.setVisible(false);
+        progress.setManaged(false);
     }
 
     private static String sanitize(String name) {
@@ -981,6 +1028,9 @@ public final class AetherStudio extends Application {
     private Region buildStatusBar() {
         progress.setPrefWidth(180);
         progress.getStyleClass().add("stage-progress");
+        // 空闲时不显示进度条：此前它常驻且为 0，表现为一条多余的空灰条。
+        progress.setVisible(false);
+        progress.setManaged(false);
         Label eventsHeader = new Label("流水线事件");
         eventsHeader.getStyleClass().add("panel-header");
         VBox eventBox = new VBox(2, eventsHeader, eventsView);
@@ -1185,10 +1235,9 @@ public final class AetherStudio extends Application {
                 return engine.decompile(currentSource, target);
             }
         };
-        progress.progressProperty().bind(task.progressProperty());
+        beginProgress(task, true);
         task.setOnSucceeded(e -> {
-            progress.progressProperty().unbind();
-            progress.setProgress(0);
+            endProgress();
             currentResult = task.getValue();
             inspector.setInfo(task.getValue().model());
             inspector.setMetrics(task.getValue());
@@ -1196,8 +1245,7 @@ public final class AetherStudio extends Application {
             statusLabel.setText("反编译完成: " + target);
         });
         task.setOnFailed(e -> {
-            progress.progressProperty().unbind();
-            progress.setProgress(0);
+            endProgress();
             statusLabel.setText("反编译失败: " + task.getException().getMessage());
         });
         Thread thread = new Thread(task, "aether-decompile");

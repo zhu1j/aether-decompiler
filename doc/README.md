@@ -21,6 +21,8 @@
 | [08](08-backdrop-resolution.md) | 背景分辨率自适应 | 布局/几何 | 拉伸变形、未按窗口比例贴合 |
 | [09](09-javafx-launch.md) | JavaFX 启动类运行报错 | 构建/运行时 | classpath 下 Application 子类不能作主类 |
 | [10](10-wallpaper-json-parse.md) | Wallpaper `project.json` 解析错误 | 解析 | 嵌套键 `schemecolor.type` 遮蔽顶层 `type` |
+| [11](11-webview-white-veil.md) | 网页壁纸引入的透明白遮罩（回归） | 渲染/层叠 | WebView 未加载时的白页被半透明化成整屏遮罩 |
+| [12](12-task-progress.md) | 任务进度条（空闲灰条） | 交互/并发 | 空闲不隐藏 + 任务未上报/绑定进度 |
 
 ---
 
@@ -46,6 +48,9 @@ mindmap
       JavaFX 启动报错
     解析
       project.json
+    回归与交互
+      WebView 白遮罩
+      任务进度条
 ```
 
 ---
@@ -68,6 +73,8 @@ graph LR
     C --> C3[批量导入异步化]
     C --> C4[背景 cover 自适应]
     C --> C5[技术文档沉淀]
+    D[第四轮<br/>回归修复] --> D1[WebView 白遮罩]
+    D --> D2[任务进度条]
 ```
 
 ---
