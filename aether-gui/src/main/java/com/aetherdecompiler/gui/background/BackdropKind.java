@@ -28,6 +28,8 @@ public enum BackdropKind {
     IMAGE,
     /** 循环视频（mp4 / m4v / mov / webm / flv）。 */
     VIDEO,
+    /** 网页型壁纸（html / htm，通常是一个 Wallpaper Engine 的 {@code type=web} 工程）。 */
+    WEB,
     /** 未设置任何内容。 */
     NONE
 }

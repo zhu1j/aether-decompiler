@@ -25,6 +25,7 @@ import javafx.scene.shape.Polyline;
 import javafx.scene.shape.Rectangle;
 import javafx.scene.text.Font;
 import javafx.scene.text.Text;
+import javafx.scene.text.TextBoundsType;
 
 import java.util.ArrayDeque;
 import java.util.ArrayList;
@@ -37,36 +38,37 @@ import java.util.Map;
 /**
  * 控制流图视图：一个不使用 Canvas 的、基于节点的渲染器。
  *
- * <p>本轮重绘解决了旧版的三个观感问题：</p>
- * <ol>
- *   <li><b>节点高度固定导致文字溢出</b> —— 现在每个节点的高度按该基本块的
- *       指令行数动态计算，长指令按近似列宽折行，绝不会溢出边框。</li>
- *   <li><b>单列“一条线”布局</b> —— 现在用从入口基本块出发的 BFS 层次做
- *       分层布局：同一层的基本块并排成一行，层与层之间垂直堆叠，图结构
- *       一眼可见。</li>
- *   <li><b>粗糙的直连边</b> —— 现在用正交折线（先下后横再下）连接，前向
- *       边居中直落，回边（指向更上层）从右侧绕行，末端一律带箭头。</li>
- * </ol>
+ * <p>本视图的排版遵守一条铁律：<b>节点高度、正文折行与实际绘制必须是同一套计算</b>。
+ * 旧版把“按字符数折行得到的高度”与“{@code Text} 按像素宽度自动折行的可视化”
+ * 混在一起，导致长指令（例如 {@code java/lang/IllegalArgumentException}）
+ * 被 {@code Text} 折成两行、而高度只按一行计算，于是文字溢出边框、与相邻节点叠字。</p>
+ *
+ * <p>修复做法：正文一律由本视图<strong>预先按等宽字符数折行</strong>，并关闭
+ * {@code Text} 的自动折行（{@code wrappingWidth=0}）。这样“行数 → 高度”与
+ * “绘制出的行数”永远一致，节点高度恰好包裹文字，绝无溢出。</p>
+ *
+ * <p>布局上，用从入口基本块出发的 BFS 层次分层：同层基本块并排成一行，层与层
+ * 垂直堆叠；边用正交折线连接，前向边居中直落，回边从右侧绕行，末端带箭头。</p>
  *
  * <p>刻意由 JavaFX 的 {@code Shape}/{@code Text} 节点构建，而不用原始
- * {@code Canvas}，这样该图便可由 CSS 皮肤设定样式，也能被自然地滚动与
- * 平移。它消费插件 API 中中性的 {@code com.aetherdecompiler.api.CfgView}，
+ * {@code Canvas}，这样该图便可由 CSS 皮肤设定样式，也能被自然地滚动与平移。
+ * 它消费插件 API 中中性的 {@code com.aetherdecompiler.api.CfgView}，
  * 以全限定名引用，因为本视图类的简单名也叫 {@code CfgView}。</p>
  *
  * @author Jerry Zhu (Zeek)
  */
 public final class CfgView extends ScrollPane {
 
-    private static final double NODE_W = 300;
-    private static final double HEADER_H = 30;
-    private static final double LINE_H = 16;
-    private static final double PAD_BOTTOM = 14;
+    private static final double NODE_W = 360;
+    private static final double HEADER_H = 32;
+    private static final double LINE_H = 17;
+    private static final double PAD_BOTTOM = 12;
     private static final double H_GAP = 72;
     private static final double V_GAP = 84;
     private static final double MARGIN = 40;
-    private static final double BODY_WRAP = NODE_W - 28;
+    /** 等宽 11px 时约 6.6px/字符；正文可用宽度 = NODE_W - 28 = 332px，约合 50 字符。 */
     private static final int MAX_WRAP_CHARS = 46;
-    private static final int MAX_LINES_PER_NODE = 16;
+    private static final int MAX_LINES_PER_NODE = 18;
 
     private final Pane canvas = new Pane();
 
@@ -115,13 +117,13 @@ public final class CfgView extends ScrollPane {
             row.sort(Comparator.comparingInt(com.aetherdecompiler.api.CfgView.Block::id));
         }
 
-        // 2) 逐块计算显示行与动态高度。
+        // 2) 逐块计算显示行与动态高度（行数就是绘制行数，二者严格一致）。
         Map<Integer, List<String>> bodyLines = new HashMap<>();
         Map<Integer, double[]> size = new HashMap<>();
         for (com.aetherdecompiler.api.CfgView.Block b : blocks) {
             List<String> ls = wrapInsns(insns, b);
             bodyLines.put(b.id(), ls);
-            double h = HEADER_H + Math.max(1, ls.size()) * LINE_H + PAD_BOTTOM;
+            double h = HEADER_H + ls.size() * LINE_H + PAD_BOTTOM;
             size.put(b.id(), new double[]{NODE_W, h});
         }
 
@@ -217,6 +219,16 @@ public final class CfgView extends ScrollPane {
         return level;
     }
 
+    /**
+     * 把某个基本块内的指令预先折行。
+     *
+     * <p>折行纯粹按等宽字符数进行，且绘制时关闭 {@code Text} 的自动折行，因此这里
+     * 返回的行数<em>就是</em>最终显示的行数，节点高度据此计算绝不会算少。</p>
+     *
+     * @param insns 全部指令的可读文本
+     * @param block 目标基本块
+     * @return 逐行文本（至少一行）
+     */
     private List<String> wrapInsns(List<String> insns, com.aetherdecompiler.api.CfgView.Block block) {
         List<String> out = new ArrayList<>();
         for (int i = block.firstInsn(); i <= block.lastInsn() && i < insns.size(); i++) {
@@ -259,19 +271,24 @@ public final class CfgView extends ScrollPane {
         sep.setY(xy[1] + HEADER_H - 6);
         sep.getStyleClass().add("cfg-node-sep");
 
-        Text head = new Text(xy[0] + 14, xy[1] + 20,
+        Text head = new Text(xy[0] + 14, xy[1] + 21,
                 "B" + block.id() + (block.isEntry() ? "   \u25B8 entry" : ""));
         head.getStyleClass().add("cfg-node-id");
         head.setFont(Font.font("monospace", 12));
+        head.setTextOrigin(javafx.geometry.VPos.TOP);
+        head.setBoundsType(TextBoundsType.LOGICAL_VERTICAL_CENTER);
 
         canvas.getChildren().addAll(rect, sep, head);
 
-        double ty = xy[1] + HEADER_H + 8;
+        double ty = xy[1] + HEADER_H + 4;
         for (String line : lines) {
             Text t = new Text(xy[0] + 14, ty, line);
             t.getStyleClass().add("cfg-node-label");
             t.setFont(Font.font("monospace", 11));
-            t.setWrappingWidth(BODY_WRAP);
+            // 关键：关闭自动折行。正文已按等宽字符数预折行，绘制行数与高度计算一致。
+            t.setWrappingWidth(0);
+            t.setTextOrigin(javafx.geometry.VPos.TOP);
+            t.setBoundsType(TextBoundsType.LOGICAL_VERTICAL_CENTER);
             canvas.getChildren().add(t);
             ty += LINE_H;
         }

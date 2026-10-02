@@ -41,6 +41,9 @@ public final class Backdrop {
             ".png", ".jpg", ".jpeg", ".gif", ".bmp", ".webp");
     private static final Set<String> VIDEO_EXT = Set.of(
             ".mp4", ".m4v", ".mov", ".webm", ".flv", ".mkv");
+    /** 网页型壁纸：Wallpaper Engine 的 {@code type=web} 工程以 {@code index.html} 作为入口。 */
+    private static final Set<String> WEB_EXT = Set.of(
+            ".html", ".htm", ".xhtml");
 
     private final String title;
     private final BackdropKind kind;
@@ -94,6 +97,9 @@ public final class Backdrop {
         if (VIDEO_EXT.contains(ext)) {
             return BackdropKind.VIDEO;
         }
+        if (WEB_EXT.contains(ext)) {
+            return BackdropKind.WEB;
+        }
         return BackdropKind.NONE;
     }
 
@@ -107,9 +113,14 @@ public final class Backdrop {
         return VIDEO_EXT.contains(suffix(name));
     }
 
+    /** @return 某个扩展名是否为网页型壁纸 */
+    public static boolean isWeb(String name) {
+        return WEB_EXT.contains(suffix(name));
+    }
+
     /** @return 某个扩展名是否为任意受支持的背景媒体 */
     public static boolean isMedia(String name) {
-        return isImage(name) || isVideo(name);
+        return isImage(name) || isVideo(name) || isWeb(name);
     }
 
     private static String suffix(String name) {
@@ -146,6 +157,11 @@ public final class Backdrop {
     /** @return 该背景是否为视频 */
     public boolean isVideo() {
         return kind == BackdropKind.VIDEO;
+    }
+
+    /** @return 该背景是否为网页型壁纸 */
+    public boolean isWeb() {
+        return kind == BackdropKind.WEB;
     }
 
     @Override

@@ -221,6 +221,13 @@ aether-decompiler/
 - **可观测性通过事件总线**，而不是散落在内核各处的日志。
 - **单一根异常**（`AetherException`）搭配稳定的 `ErrorCode` 枚举。
 
+## 技术问题档案
+
+aether-gui 在「能用 → 好用」迭代中修复的每一类缺陷，都在 [`doc/`](doc/README.md)
+下按「现象 → 根因 → 方案 → 验证」系统性记录（附 mermaid 图）：CFG 重绘与文字重叠、
+背景可见性、导出完整 Java、双目录树、网页型壁纸、批量导入、背景分辨率自适应、
+JavaFX 启动排障、`project.json` 解析。
+
 ## 路线图
 
 - [x] **Phase 0** —— ASM 薄包装、不可变模型、惰性类来源、引擎、测试

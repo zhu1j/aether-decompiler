@@ -76,6 +76,8 @@ import javafx.scene.layout.VBox;
 import javafx.scene.media.Media;
 import javafx.scene.media.MediaPlayer;
 import javafx.scene.media.MediaView;
+import javafx.scene.shape.Rectangle;
+import javafx.scene.web.WebView;
 import javafx.stage.DirectoryChooser;
 import javafx.stage.FileChooser;
 import javafx.stage.Modality;
@@ -128,6 +130,7 @@ public final class AetherStudio extends Application {
     /** 用于填充模式下拉框的背景透明度预设。 */
     private static final String FILL_STRETCH = "拉伸填充";
     private static final String FILL_FIT = "等比适应";
+    private static final String FILL_COVER = "铺满窗口";
 
     private final SkinManager skinManager = new SkinManager(SkinManager.defaultUserSkinDir());
     private final BackdropLibrary backdropLibrary = new BackdropLibrary(BackdropLibrary.defaultRoot());
@@ -153,6 +156,10 @@ public final class AetherStudio extends Application {
     private final StackPane mediaHolder = new StackPane();
     private final ImageView bgImage = new ImageView();
     private final MediaView bgVideo = new MediaView();
+    /** 网页型壁纸（Wallpaper Engine type=web）的渲染器。 */
+    private final WebView bgWeb = new WebView();
+    /** 背景层裁剪框：让“铺满窗口”模式溢出的部分被裁掉，而不是外溢到窗口外。 */
+    private final Rectangle bgClip = new Rectangle();
     private final Region scrim = new Region();
     private final Slider bgOpacity = new Slider(0.05, 1.0, Skin.DEFAULT_BACKGROUND_OPACITY);
     private final Slider bgBlur = new Slider(0, 24, 0);
@@ -170,6 +177,8 @@ public final class AetherStudio extends Application {
 
     /** 界面是否已完成构建。构建期间皮肤下拉框的初始选择不应触发应用与偏好持久化。 */
     private boolean uiReady;
+    /** 填充模式是否应回写偏好。构建期间不写，避免覆盖用户已保存的选择。 */
+    private boolean rememberFillChange;
 
     @Override
     public void start(Stage primaryStage) {
@@ -220,18 +229,28 @@ public final class AetherStudio extends Application {
     private Region buildBackdropLayer() {
         bgImage.setSmooth(true);
         bgImage.setPreserveRatio(false);
-        bgImage.fitWidthProperty().bind(rootStack.widthProperty());
-        bgImage.fitHeightProperty().bind(rootStack.heightProperty());
 
         bgVideo.setPreserveRatio(false);
-        bgVideo.fitWidthProperty().bind(rootStack.widthProperty());
-        bgVideo.fitHeightProperty().bind(rootStack.heightProperty());
 
-        mediaHolder.getChildren().addAll(bgImage, bgVideo);
+        // 网页型壁纸渲染器：作为背景时不可交互，且不显示右键菜单。
+        bgWeb.setMouseTransparent(true);
+        bgWeb.setContextMenuEnabled(false);
+        bgWeb.setDisable(true);
+
+        mediaHolder.getChildren().addAll(bgImage, bgVideo, bgWeb);
         mediaHolder.getStyleClass().add("bg-layer");
         mediaHolder.setMouseTransparent(true);
         mediaHolder.opacityProperty().bind(bgOpacity.valueProperty());
         mediaHolder.setEffect(blurEffect);
+
+        // 分辨率自适应：窗口尺寸变化时重算三种填充模式的几何。
+        rootStack.widthProperty().addListener((o, a, b) -> applyFillLayout());
+        rootStack.heightProperty().addListener((o, a, b) -> applyFillLayout());
+
+        // 裁剪框：让“铺满窗口”模式溢出的部分被裁掉，而不是外溢到窗口之外。
+        mediaHolder.setClip(bgClip);
+        bgClip.widthProperty().bind(rootStack.widthProperty());
+        bgClip.heightProperty().bind(rootStack.heightProperty());
 
         scrim.getStyleClass().add("bg-scrim");
         scrim.setMouseTransparent(true);
@@ -242,6 +261,7 @@ public final class AetherStudio extends Application {
         disposeVideo();
         bgImage.setImage(null);
         bgVideo.setMediaPlayer(null);
+        bgWeb.getEngine().load(null);
         currentBackdrop = backdrop;
 
         if (backdrop != null) {
@@ -251,6 +271,21 @@ public final class AetherStudio extends Application {
                     bgImage.setImage(img);
                 } else {
                     currentBackdrop = null;
+                }
+            } else if (backdrop.kind() == BackdropKind.WEB) {
+                // 网页型壁纸（Wallpaper Engine type=web）：用 WebView 渲染 index.html。
+                // 因整目录已复制进背景库，其相对引用的 css/js/img 依然有效。
+                if (Files.isRegularFile(backdrop.media())) {
+                    if (backdrop.preview() != null && Files.isRegularFile(backdrop.preview())) {
+                        Image poster = loadImage(backdrop.preview());
+                        if (poster != null) {
+                            bgImage.setImage(poster);
+                        }
+                    }
+                    bgWeb.getEngine().load(backdrop.media().toUri().toString());
+                } else {
+                    currentBackdrop = null;
+                    statusLabel.setText("网页壁纸入口文件不存在");
                 }
             } else if (backdrop.kind() == BackdropKind.VIDEO) {
                 // 先铺设预览静帧作为海报，避免视频解码前或解码失败时呈现空白。
@@ -293,6 +328,9 @@ public final class AetherStudio extends Application {
         bgOpacity.setDisable(!active);
         bgBlur.setDisable(!active);
         bgFill.setDisable(!active);
+        if (active) {
+            applyFillLayout();
+        }
         if (remember) {
             savePrefs();
         }
@@ -315,16 +353,87 @@ public final class AetherStudio extends Application {
         }
     }
 
-    private void updateFillMode(String mode) {
-        boolean fit = FILL_FIT.equals(mode);
-        bgImage.setPreserveRatio(fit);
-        bgVideo.setPreserveRatio(fit);
-        if (fit) {
-            bgImage.fitWidthProperty().unbind();
-            bgImage.fitHeightProperty().unbind();
-            bgVideo.fitWidthProperty().unbind();
-            bgVideo.fitHeightProperty().unbind();
+    /**
+     * 依据当前填充模式与窗口尺寸重新计算背景层几何（分辨率自适应）。
+     *
+     * <p>三种模式：</p>
+     * <ul>
+     *   <li><b>铺满窗口</b>（默认，cover）—— 保持宽高比放大到完全覆盖窗口，溢出由裁剪框
+     *       裁掉；背景始终贴合窗口、不留黑边，也不会被拉伸变形。</li>
+     *   <li><b>拉伸填充</b> —— 强制拉满窗口，可能变形。</li>
+     *   <li><b>等比适应</b>（contain）—— 保持宽高比缩放到完整可见，可能留黑边。</li>
+     * </ul>
+     */
+    private void applyFillLayout() {
+        double w = Math.max(1, rootStack.getWidth());
+        double h = Math.max(1, rootStack.getHeight());
+        String mode = bgFill.getSelectionModel().getSelectedItem();
+
+        Image img = bgImage.getImage();
+        double iw = img == null ? 0 : img.getWidth();
+        double ih = img == null ? 0 : img.getHeight();
+
+        MediaPlayer mp = videoPlayer;
+        double vw = mp == null || mp.getMedia() == null ? 0 : mp.getMedia().getWidth();
+        double vh = mp == null || mp.getMedia() == null ? 0 : mp.getMedia().getHeight();
+
+        if (FILL_STRETCH.equals(mode)) {
+            bgImage.setPreserveRatio(false);
+            bgVideo.setPreserveRatio(false);
+            setGeometry(bgImage, w, h, w, h);
+            setGeometry(bgVideo, w, h, w, h);
+        } else if (FILL_FIT.equals(mode)) {
+            bgImage.setPreserveRatio(true);
+            bgVideo.setPreserveRatio(true);
+            double[] d1 = contain(iw, ih, w, h);
+            double[] d2 = contain(vw, vh, w, h);
+            setGeometry(bgImage, w, h, d1[0], d1[1]);
+            setGeometry(bgVideo, w, h, d2[0], d2[1]);
+        } else {
+            bgImage.setPreserveRatio(true);
+            bgVideo.setPreserveRatio(true);
+            double[] d1 = cover(iw, ih, w, h);
+            double[] d2 = cover(vw, vh, w, h);
+            setGeometry(bgImage, w, h, d1[0], d1[1]);
+            setGeometry(bgVideo, w, h, d2[0], d2[1]);
         }
+
+        bgWeb.setPrefWidth(w);
+        bgWeb.setPrefHeight(h);
+    }
+
+    /** 设置媒体节点的显示尺寸；尺寸为 0 时退回窗口尺寸。 */
+    private static void setGeometry(javafx.scene.Node node, double w, double h,
+                                    double fw, double fh) {
+        if (node instanceof ImageView iv) {
+            iv.fitWidthProperty().unbind();
+            iv.fitHeightProperty().unbind();
+            iv.setFitWidth(fw > 0 ? fw : w);
+            iv.setFitHeight(fh > 0 ? fh : h);
+        } else if (node instanceof MediaView mv) {
+            mv.fitWidthProperty().unbind();
+            mv.fitHeightProperty().unbind();
+            mv.setFitWidth(fw > 0 ? fw : w);
+            mv.setFitHeight(fh > 0 ? fh : h);
+        }
+    }
+
+    /** 等比适应（contain）：完整可见，可能留黑边。 */
+    private static double[] contain(double iw, double ih, double w, double h) {
+        if (iw <= 0 || ih <= 0) {
+            return new double[]{w, h};
+        }
+        double scale = Math.min(w / iw, h / ih);
+        return new double[]{iw * scale, ih * scale};
+    }
+
+    /** 铺满窗口（cover）：保持比例放大到完全覆盖，溢出由裁剪框裁掉。 */
+    private static double[] cover(double iw, double ih, double w, double h) {
+        if (iw <= 0 || ih <= 0) {
+            return new double[]{w, h};
+        }
+        double scale = Math.max(w / iw, h / ih);
+        return new double[]{iw * scale, ih * scale};
     }
 
     // ------------------------------------------------------------------- 偏好
@@ -337,9 +446,12 @@ public final class AetherStudio extends Application {
             skinBox.getSelectionModel().select(skin);
         }
 
-        String fill = props.getProperty("backgroundFill", FILL_STRETCH);
+        String fill = props.getProperty("backgroundFill", FILL_COVER);
+        if (bgFill.getItems().isEmpty()) {
+            bgFill.setItems(FXCollections.observableArrayList(FILL_COVER, FILL_STRETCH, FILL_FIT));
+        }
         bgFill.getSelectionModel().select(fill);
-        updateFillMode(fill);
+        applyFillLayout();
 
         double opacity = parseDouble(props.getProperty("backgroundOpacity"),
                 Skin.DEFAULT_BACKGROUND_OPACITY);
@@ -502,13 +614,10 @@ public final class AetherStudio extends Application {
 
         ListView<Backdrop> gallery = new ListView<>();
         gallery.getStyleClass().add("gallery");
-        gallery.setItems(FXCollections.observableArrayList(backdropLibrary.list()));
         gallery.setCellFactory(v -> new BackdropCell());
-        if (currentBackdrop != null) {
-            gallery.getSelectionModel().select(currentBackdrop);
-        } else if (!gallery.getItems().isEmpty()) {
-            gallery.getSelectionModel().selectFirst();
-        }
+        gallery.setPlaceholder(new Label("正在扫描背景库…"));
+        // 批量导入大量壁纸时，目录扫描放到后台线程，避免界面长时间无响应。
+        reloadGallery(gallery, dialogStatus);
 
         Button importFile = new Button("导入图片/视频");
         importFile.getStyleClass().add("tool-button");
@@ -564,7 +673,7 @@ public final class AetherStudio extends Application {
                 if (currentBackdrop != null && currentBackdrop.media().equals(bd.media())) {
                     applyBackdrop(null, true);
                 }
-                gallery.setItems(FXCollections.observableArrayList(backdropLibrary.list()));
+                reloadGallery(gallery, dialogStatus);
                 dialogStatus.setText("已移除: " + bd.title());
             } catch (IOException ex) {
                 statusLabel.setText("移除失败: " + ex.getMessage());
@@ -580,10 +689,7 @@ public final class AetherStudio extends Application {
         Button refresh = new Button("刷新列表");
         refresh.getStyleClass().add("tool-button");
         refresh.setOnAction(e -> {
-            gallery.setItems(FXCollections.observableArrayList(backdropLibrary.list()));
-            String note = "已刷新背景列表（共 " + gallery.getItems().size() + " 项）";
-            statusLabel.setText(note);
-            dialogStatus.setText(note);
+            reloadGallery(gallery, dialogStatus);
         });
 
         HBox importRow = new HBox(8, importFile, importWe, openFolder, refresh);
@@ -600,7 +706,18 @@ public final class AetherStudio extends Application {
         bgOpacity.setPrefWidth(180);
         bgBlur.setPrefWidth(180);
         bgFill.setPrefWidth(180);
-        bgFill.setItems(FXCollections.observableArrayList(FILL_STRETCH, FILL_FIT));
+        if (bgFill.getItems().isEmpty()) {
+            bgFill.setItems(FXCollections.observableArrayList(FILL_COVER, FILL_STRETCH, FILL_FIT));
+        }
+        // 切换填充模式立即重算几何，实现分辨率自适应（默认“铺满窗口”）。
+        bgFill.getSelectionModel().selectedItemProperty().addListener((o, a, b) -> {
+            if (b != null) {
+                applyFillLayout();
+                if (rememberFillChange) {
+                    savePrefs();
+                }
+            }
+        });
         HBox controls = new HBox(10, opacityCaption, bgOpacity, blurCaption, bgBlur, fillCaption, bgFill);
         controls.setAlignment(Pos.CENTER_LEFT);
 
@@ -622,17 +739,75 @@ public final class AetherStudio extends Application {
     }
 
     private void importIntoLibrary(Stage dialog, ListView<Backdrop> gallery, Path source, boolean project) {
-        try {
-            Backdrop bd = backdropLibrary.importAny(source);
-            List<Backdrop> items = new ArrayList<>(gallery.getItems());
-            items.add(bd);
-            gallery.setItems(FXCollections.observableArrayList(items));
+        // 大批量复制（尤其是整目录的 Wallpaper 工程）放到后台线程，界面保持响应。
+        Task<Backdrop> task = new Task<>() {
+            @Override
+            protected Backdrop call() throws Exception {
+                return backdropLibrary.importAny(source);
+            }
+        };
+        task.setOnSucceeded(e -> {
+            Backdrop bd = task.getValue();
+            reloadGallery(gallery, null);
             gallery.getSelectionModel().select(bd);
             applyBackdrop(bd, true);
             statusLabel.setText("已导入并应用背景: " + bd.title());
-        } catch (IOException ex) {
-            statusLabel.setText("导入失败: " + ex.getMessage());
+        });
+        task.setOnFailed(e -> {
+            Throwable ex = task.getException();
+            statusLabel.setText("导入失败: " + (ex == null ? "未知错误" : ex.getMessage()));
+        });
+        Thread t = new Thread(task, "backdrop-import");
+        t.setDaemon(true);
+        t.start();
+    }
+
+    /**
+     * 在后台线程重新扫描背景库，完成后回到 JavaFX 线程刷新列表。
+     *
+     * <p>用户一次粘贴大量 Wallpaper 工程时，目录扫描可能耗时；放到后台可避免
+     * 界面“长时间未响应”。</p>
+     *
+     * @param gallery 要刷新的列表
+     * @param status  可选状态标签（可为 {@code null}）
+     */
+    private void reloadGallery(ListView<Backdrop> gallery, Label status) {
+        if (status != null) {
+            status.setText("正在扫描背景库…");
         }
+        Task<List<Backdrop>> task = new Task<>() {
+            @Override
+            protected List<Backdrop> call() {
+                return backdropLibrary.list();
+            }
+        };
+        task.setOnSucceeded(e -> {
+            List<Backdrop> items = task.getValue();
+            gallery.setItems(FXCollections.observableArrayList(items));
+            if (currentBackdrop != null && items.contains(currentBackdrop)) {
+                gallery.getSelectionModel().select(currentBackdrop);
+            } else if (!items.isEmpty()) {
+                gallery.getSelectionModel().selectFirst();
+            } else {
+                gallery.setPlaceholder(new Label("背景库为空：请导入图片、视频或 Wallpaper 工程。"));
+            }
+            String note = "背景库共 " + items.size() + " 项";
+            statusLabel.setText(note);
+            if (status != null) {
+                status.setText(note);
+            }
+        });
+        task.setOnFailed(e -> {
+            Throwable ex = task.getException();
+            String msg = "扫描背景库失败: " + (ex == null ? "未知错误" : ex.getMessage());
+            statusLabel.setText(msg);
+            if (status != null) {
+                status.setText(msg);
+            }
+        });
+        Thread t = new Thread(task, "backdrop-scan");
+        t.setDaemon(true);
+        t.start();
     }
 
     private void openFolder(Path dir) {
@@ -1141,7 +1316,12 @@ public final class AetherStudio extends Application {
 
             Label name = new Label(bd.title());
             name.getStyleClass().add("bd-name");
-            Label kind = new Label(bd.kind() == BackdropKind.VIDEO ? "视频" : "图片");
+            Label kind = new Label(switch (bd.kind()) {
+                case VIDEO -> "视频";
+                case WEB -> "网页";
+                case IMAGE -> "图片";
+                default -> "背景";
+            });
             kind.getStyleClass().add("bd-kind");
             VBox text = new VBox(2, name, kind);
             text.setAlignment(Pos.CENTER_LEFT);

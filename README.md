@@ -26,6 +26,7 @@ on top and are never part of the kernel.
   - [Custom backdrop](#custom-backdrop)
 - [Project layout](#project-layout)
 - [Design invariants](#design-invariants)
+- [Troubleshooting notes](#troubleshooting-notes)
 - [Roadmap](#roadmap)
 - [License](#license)
 
@@ -237,6 +238,14 @@ aether-decompiler/
   upper-layer concern, not a kernel one.
 - **Observability is an event bus**, not logging scattered through the core.
 - **One root exception** (`AetherException`) with a stable `ErrorCode` enum.
+
+## Troubleshooting notes
+
+Every `aether-gui` defect fixed during the "usable → polished" iterations is
+documented with symptom → root cause → fix → verification (and mermaid diagrams)
+under [`doc/`](doc/README.md): CFG redraw & text overlap, backdrop visibility,
+full Java export, dual-tree navigation, web wallpapers, bulk import, backdrop
+resolution fit, JavaFX launch, and `project.json` parsing.
 
 ## Roadmap
 

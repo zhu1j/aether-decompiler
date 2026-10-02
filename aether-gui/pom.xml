@@ -65,6 +65,12 @@
             <artifactId>javafx-media</artifactId>
             <version>${javafx.version}</version>
         </dependency>
+        <!-- 网页型壁纸（Wallpaper Engine type=web 工程，index.html + css/js）渲染。 -->
+        <dependency>
+            <groupId>org.openjfx</groupId>
+            <artifactId>javafx-web</artifactId>
+            <version>${javafx.version}</version>
+        </dependency>
 
         <!-- RichTextFX：工作台的代码编辑器。 -->
         <dependency>
