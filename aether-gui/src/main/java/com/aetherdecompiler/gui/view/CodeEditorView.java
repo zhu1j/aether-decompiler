@@ -18,25 +18,18 @@
  */
 package com.aetherdecompiler.gui.view;
 
-import javafx.scene.control.Label;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.VBox;
 import org.fxmisc.richtext.CodeArea;
 import org.fxmisc.richtext.LineNumberFactory;
-import org.fxmisc.richtext.model.StyleSpans;
-import org.fxmisc.richtext.model.StyleSpansBuilder;
-
-import java.util.Collection;
-import java.util.Collections;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 /**
  * Java 源码视图：一个带行号与语法高亮的 RichTextFX {@link CodeArea}，
  * 外加一个用于三视图联动的点击回调。
  *
  * <p>该视图渲染内核/插件产出的任意文本；它纯粹是一个应用层部件，
- * 不含任何反编译逻辑。</p>
+ * 不含任何反编译逻辑。分词与配色规则统一收敛在 {@link SyntaxHighlight}，
+ * 具体颜色由 CSS 皮肤决定，因此换肤不影响本类。</p>
  *
  * <p>故事类比：举向灯光的那张纸。纸显示文本；印刷它的印刷机在别处。</p>
  *
@@ -52,39 +45,6 @@ public final class CodeEditorView extends VBox {
         void onLine(int line);
     }
 
-    private static final String[] KEYWORDS = {
-            "abstract", "assert", "boolean", "break", "byte", "case", "catch", "char",
-            "class", "const", "continue", "default", "do", "double", "else", "enum",
-            "extends", "final", "finally", "float", "for", "goto", "if", "implements",
-            "import", "instanceof", "int", "interface", "long", "native", "new", "package",
-            "private", "protected", "public", "return", "short", "static", "strictfp",
-            "super", "switch", "synchronized", "this", "throw", "throws", "transient",
-            "try", "void", "volatile", "while", "var", "record", "sealed", "permits", "yield"
-    };
-
-    private static final String KEYWORD_PATTERN = "\\b(" + String.join("|", KEYWORDS) + ")\\b";
-    private static final String PAREN_PATTERN = "[()]";
-    private static final String BRACE_PATTERN = "[{}]";
-    private static final String BRACKET_PATTERN = "[\\[\\]]";
-    private static final String SEMICOLON_PATTERN = ";";
-    private static final String STRING_PATTERN = "\"([^\"\\\\]|\\\\.)*\"";
-    private static final String CHAR_PATTERN = "'([^'\\\\]|\\\\.)*'";
-    private static final String COMMENT_PATTERN = "//[^\n]*" + "|" + "/\\*(.|\\R)*?\\*/";
-    private static final String NUMBER_PATTERN = "\\b\\d[\\d_]*(\\.[\\d_]+)?[fFdDlL]?\\b";
-    private static final String ANNOTATION_PATTERN = "@\\w+";
-
-    private static final Pattern HIGHLIGHT = Pattern.compile(
-            "(?<KEYWORD>" + KEYWORD_PATTERN + ")"
-                    + "|(?<STRING>" + STRING_PATTERN + ")"
-                    + "|(?<CHAR>" + CHAR_PATTERN + ")"
-                    + "|(?<COMMENT>" + COMMENT_PATTERN + ")"
-                    + "|(?<NUMBER>" + NUMBER_PATTERN + ")"
-                    + "|(?<ANNOTATION>" + ANNOTATION_PATTERN + ")"
-                    + "|(?<PAREN>" + PAREN_PATTERN + ")"
-                    + "|(?<BRACE>" + BRACE_PATTERN + ")"
-                    + "|(?<BRACKET>" + BRACKET_PATTERN + ")"
-                    + "|(?<SEMICOLON>" + SEMICOLON_PATTERN + ")");
-
     private final CodeArea codeArea = new CodeArea();
     private LineClickListener lineClickListener;
 
@@ -98,7 +58,7 @@ public final class CodeEditorView extends VBox {
         codeArea.setParagraphGraphicFactory(LineNumberFactory.get(codeArea));
         codeArea.richChanges()
                 .filter(ch -> !ch.getInserted().equals(ch.getRemoved()))
-                .subscribe(ignore -> codeArea.setStyleSpans(0, computeHighlighting(codeArea.getText())));
+                .subscribe(ignore -> codeArea.setStyleSpans(0, SyntaxHighlight.compute(codeArea.getText())));
         codeArea.setOnMouseClicked(evt -> {
             if (lineClickListener != null) {
                 int line = codeArea.getCurrentParagraph() + 1;
@@ -136,30 +96,5 @@ public final class CodeEditorView extends VBox {
      */
     public void setLineClickListener(LineClickListener listener) {
         this.lineClickListener = listener;
-    }
-
-    private static StyleSpans<Collection<String>> computeHighlighting(String text) {
-        Matcher matcher = HIGHLIGHT.matcher(text);
-        StyleSpansBuilder<Collection<String>> spansBuilder = new StyleSpansBuilder<>();
-        int lastKwEnd = 0;
-        while (matcher.find()) {
-            String styleClass =
-                    matcher.group("KEYWORD") != null ? "keyword"
-                            : matcher.group("STRING") != null ? "string"
-                            : matcher.group("CHAR") != null ? "string"
-                            : matcher.group("COMMENT") != null ? "comment"
-                            : matcher.group("NUMBER") != null ? "number"
-                            : matcher.group("ANNOTATION") != null ? "annotation"
-                            : matcher.group("PAREN") != null ? "paren"
-                            : matcher.group("BRACE") != null ? "brace"
-                            : matcher.group("BRACKET") != null ? "bracket"
-                            : matcher.group("SEMICOLON") != null ? "semicolon"
-                            : null;
-            spansBuilder.add(Collections.emptyList(), matcher.start() - lastKwEnd);
-            spansBuilder.add(Collections.singleton(styleClass), matcher.end() - matcher.start());
-            lastKwEnd = matcher.end();
-        }
-        spansBuilder.add(Collections.emptyList(), text.length() - lastKwEnd);
-        return spansBuilder.create();
     }
 }

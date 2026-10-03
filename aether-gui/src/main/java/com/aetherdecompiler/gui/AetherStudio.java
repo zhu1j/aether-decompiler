@@ -64,6 +64,7 @@ import javafx.scene.control.Label;
 import javafx.scene.control.ListCell;
 import javafx.scene.control.ListView;
 import javafx.scene.control.ProgressBar;
+import javafx.scene.control.ScrollPane;
 import javafx.scene.control.Slider;
 import javafx.scene.control.SplitPane;
 import javafx.scene.control.Tab;
@@ -677,7 +678,17 @@ public final class AetherStudio extends Application {
                 exportAll, setOutDir, openOutDir);
         bar.getStyleClass().add("topbar");
         bar.setAlignment(Pos.CENTER_LEFT);
-        return bar;
+        // 缺陷修复：窗口被拖窄时，顶栏原先既无最小高度也不可滚动，按钮被一路压缩到
+        // 高度 0，整条顶栏连带工具按钮一起“消失”。这里给顶栏固定最小高度，并把它放进
+        // 可横向滚动的容器：窗口再窄，顶栏也始终可见，溢出的按钮可通过横向滚动访问。
+        bar.setMinHeight(Region.USE_PREF_SIZE);
+        ScrollPane scroller = new ScrollPane(bar);
+        scroller.setFitToHeight(true);
+        scroller.setHbarPolicy(ScrollPane.ScrollBarPolicy.AS_NEEDED);
+        scroller.setVbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
+        scroller.setMinHeight(Region.USE_PREF_SIZE);
+        scroller.getStyleClass().add("topbar-scroll");
+        return scroller;
     }
 
     // -------------------------------------------------------- 背景对话框
@@ -957,6 +968,33 @@ public final class AetherStudio extends Application {
             statusLabel.setText("查看反编译文件: " + file);
         } catch (IOException ex) {
             statusLabel.setText("读取失败: " + ex.getMessage());
+        }
+        // 缺陷修复：此前在“反编译输出”里点开某个 .java 只刷新源码视图，右侧“类信息”
+        // 纹丝不动，看起来像联动坏了。现在按文件路径还原其内部类名，反查到类模型后
+        // 同步刷新“类信息 / 整体度量”，与从结构树打开一个类的行为完全一致。
+        syncInspectorForOutputFile(file);
+    }
+
+    /** 根据“反编译输出”里的文件路径还原内部类名，并同步刷新右侧检查器。 */
+    private void syncInspectorForOutputFile(Path file) {
+        if (currentSource == null || outputRoot == null || file == null) {
+            return;
+        }
+        try {
+            String rel = outputRoot.relativize(file).toString().replace('\\', '/');
+            if (rel.endsWith(".java")) {
+                rel = rel.substring(0, rel.length() - ".java".length());
+            }
+            String internal = resolveInternalName(rel);
+            DecompilerEngine.DecompileResult result = engine.decompile(currentSource, internal);
+            if (result.ok()) {
+                currentClass = internal;
+                currentResult = result;
+                inspector.setInfo(result.model());
+                inspector.setMetrics(result);
+            }
+        } catch (RuntimeException ignored) {
+            // 文件不在当前来源内或反编译失败时，保留原有联动结果即可。
         }
     }
 

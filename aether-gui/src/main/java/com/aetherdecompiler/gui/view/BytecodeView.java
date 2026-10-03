@@ -50,7 +50,7 @@ public final class BytecodeView extends VBox {
     public record Row(int offset, int index, String mnemonic, String operand) {
         @Override
         public String toString() {
-            return String.format("%4d  %3d  %-14s %s", offset, index, mnemonic, operand);
+            return String.format("%5d  %-14s %s", offset, mnemonic, operand);
         }
     }
 
@@ -72,11 +72,12 @@ public final class BytecodeView extends VBox {
                     setGraphic(null);
                     return;
                 }
-                // IDEA 风格分色：偏移（暗）、索引（强调色）、助记符（次强调+粗体）、操作数（正文）。
+                // IDEA 风格分色：偏移（暗）、助记符（次强调+粗体）、操作数（正文）。
+                // 缺陷修复：此前同时显示“字节偏移”和“指令序号”两列，对直线代码两者
+                // 完全同步，观感上像重复的“两列行数”。这里只保留更权威的字节偏移列。
                 setText(null);
                 TextFlow flow = new TextFlow(
-                        token(String.format("%4d", row.offset()), "tok-offset"),
-                        token(String.format("  %3d", row.index()), "tok-index"),
+                        token(String.format("%5d", row.offset()), "tok-offset"),
                         token(String.format("  %-14s", row.mnemonic()), "tok-mnemonic"),
                         token(row.operand() == null ? "" : row.operand(), "tok-operand"));
                 setGraphic(flow);

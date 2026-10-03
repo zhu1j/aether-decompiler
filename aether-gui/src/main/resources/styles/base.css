@@ -271,11 +271,66 @@
     -fx-text-fill: -ae-accent;
 }
 
+/* --------------------------------------------------------------- 顶栏滚动容器 */
+
+/* 顶栏放入 ScrollPane 后，容器与视口都必须透明，才能露出 .topbar 自身的渐变与下边框；
+   否则 ScrollPane 默认的浅色视口会在顶栏外围露出一圈白边。 */
+.topbar-scroll {
+    -fx-background-color: transparent;
+    -fx-background-insets: 0;
+    -fx-padding: 0;
+}
+
+.topbar-scroll > .viewport {
+    -fx-background-color: transparent;
+}
+
+.topbar-scroll > .scroll-bar:horizontal {
+    -fx-background-color: -ae-bg-alt;
+}
+
 /* --------------------------------------------------------------------- CFG */
 
 .cfg-view,
 .cfg-canvas {
     -fx-background-color: -ae-bg;
+}
+
+/* 缺陷修复：CFG 视图外层是 ScrollPane，其 .viewport 默认是白色，之前没有覆盖，
+   于是整张控制流图躺在一片白底上。这里让视口跟随皮肤背景令牌。 */
+.cfg-view > .viewport {
+    -fx-background-color: -ae-bg;
+}
+
+.cfg-view > .scroll-bar:vertical,
+.cfg-view > .scroll-bar:horizontal {
+    -fx-background-color: -ae-bg;
+}
+
+/* ------------------------------------------------------------------ 分析视图 */
+
+/* 分析视图改用 RichTextFX 代码区做语法高亮；这里补齐其背景与文本色，
+   让 SSA / AST 与源码视图同色，且随皮肤令牌变化。 */
+.analysis-view {
+    -fx-background-color: -ae-bg;
+}
+
+.analysis-view .split-pane-divider {
+    -fx-background-color: -ae-border;
+    -fx-padding: 0 0 1 0;
+}
+
+.analysis-text {
+    -fx-background-color: -ae-bg;
+    -fx-control-inner-background: -ae-bg;
+}
+
+.analysis-text .text {
+    -fx-fill: -ae-text;
+}
+
+.analysis-text .caret {
+    -fx-stroke: -ae-accent;
 }
 
 .cfg-node {

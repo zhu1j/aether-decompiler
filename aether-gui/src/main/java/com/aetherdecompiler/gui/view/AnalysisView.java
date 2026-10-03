@@ -22,10 +22,11 @@ import com.aetherdecompiler.api.SourceTree;
 import com.aetherdecompiler.core.ast.JavaAstRenderer;
 import com.aetherdecompiler.core.engine.DecompilationPipeline;
 import com.aetherdecompiler.core.model.ClassModel;
+import javafx.scene.control.Label;
 import javafx.scene.control.SplitPane;
-import javafx.scene.control.TextArea;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.VBox;
+import org.fxmisc.richtext.CodeArea;
 
 import java.util.List;
 
@@ -37,6 +38,10 @@ import java.util.List;
  * {@link DecompilationPipeline}——因此视图所见即引擎所算，不存在“界面自己另算一份”
  * 的双份实现风险。</p>
  *
+ * <p>展示面板使用与源码视图相同的 RichTextFX {@link CodeArea}，并复用
+ * {@link SyntaxHighlight} 做语法分色，这样 SSA / AST 文本不再是单调的白字，
+ * 而是与源码视图一致的彩色高亮。</p>
+ *
  * <p>设计上刻意保持只读：本视图<strong>不</strong>修改任何模型，只把不可变的分析
  * 结果转成文本。因此它可以安全地在后台线程生产、在 JavaFX 线程消费。</p>
  *
@@ -44,20 +49,14 @@ import java.util.List;
  */
 public final class AnalysisView extends SplitPane {
 
-    private final TextArea ssaArea = new TextArea();
-    private final TextArea astArea = new TextArea();
+    private final CodeArea ssaArea = text();
+    private final CodeArea astArea = text();
 
     /**
      * 创建分析视图。
      */
     public AnalysisView() {
         getStyleClass().add("analysis-view");
-        ssaArea.setEditable(false);
-        ssaArea.getStyleClass().add("analysis-text");
-        astArea.setEditable(false);
-        astArea.getStyleClass().add("analysis-text");
-        ssaArea.setWrapText(false);
-        astArea.setWrapText(false);
 
         VBox ssaPane = new VBox(labeled("SSA 形式（phi 节点 / 定值-使用）", ssaArea));
         VBox astPane = new VBox(labeled("AST → Java（结构化控制流）", astArea));
@@ -69,8 +68,20 @@ public final class AnalysisView extends SplitPane {
         setPlaceholder();
     }
 
-    private VBox labeled(String title, TextArea area) {
-        javafx.scene.control.Label header = new javafx.scene.control.Label(title);
+    /** 创建一个只读、不折行、带语法高亮的文本区。 */
+    private static CodeArea text() {
+        CodeArea area = new CodeArea();
+        area.getStyleClass().add("analysis-text");
+        area.setEditable(false);
+        area.setWrapText(false);
+        area.richChanges()
+                .filter(ch -> !ch.getInserted().equals(ch.getRemoved()))
+                .subscribe(i -> area.setStyleSpans(0, SyntaxHighlight.compute(area.getText())));
+        return area;
+    }
+
+    private VBox labeled(String title, CodeArea area) {
+        Label header = new Label(title);
         header.getStyleClass().add("panel-header");
         VBox box = new VBox(header, area);
         VBox.setVgrow(area, Priority.ALWAYS);
@@ -78,8 +89,8 @@ public final class AnalysisView extends SplitPane {
     }
 
     private void setPlaceholder() {
-        ssaArea.setText("// 打开一个类后，这里会展示每个方法的 SSA 形式。\n");
-        astArea.setText("// 打开一个类后，这里会展示由 AST 渲染出的 Java 结构。\n");
+        ssaArea.replaceText("// 打开一个类后，这里会展示每个方法的 SSA 形式。\n");
+        astArea.replaceText("// 打开一个类后，这里会展示由 AST 渲染出的 Java 结构。\n");
     }
 
     /**
@@ -119,8 +130,8 @@ public final class AnalysisView extends SplitPane {
         if (methodCount == 0) {
             ssa.append("（无具体方法）\n");
         }
-        ssaArea.setText(ssa.toString());
-        astArea.setText(ast.length() == 0 ? "// （无可渲染的 AST）\n" : ast.toString());
+        ssaArea.replaceText(ssa.toString());
+        astArea.replaceText(ast.length() == 0 ? "// （无可渲染的 AST）\n" : ast.toString());
     }
 
     /**
