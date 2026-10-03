@@ -24,8 +24,11 @@ import javafx.scene.control.ListCell;
 import javafx.scene.control.ListView;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.VBox;
+import javafx.scene.text.Text;
+import javafx.scene.text.TextFlow;
 
 import java.util.List;
+import java.util.function.Consumer;
 
 /**
  * 字节码视图：一个字节码指令列表，含偏移、索引与渲染后的操作数文本，
@@ -52,6 +55,7 @@ public final class BytecodeView extends VBox {
     }
 
     private final ListView<Row> list = new ListView<>();
+    private Consumer<Row> rowListener;
 
     /**
      * 创建字节码视图。
@@ -63,11 +67,38 @@ public final class BytecodeView extends VBox {
             @Override
             protected void updateItem(Row row, boolean empty) {
                 super.updateItem(row, empty);
-                setText(empty || row == null ? null : row.toString());
+                if (empty || row == null) {
+                    setText(null);
+                    setGraphic(null);
+                    return;
+                }
+                // IDEA 风格分色：偏移（暗）、索引（强调色）、助记符（次强调+粗体）、操作数（正文）。
+                setText(null);
+                TextFlow flow = new TextFlow(
+                        token(String.format("%4d", row.offset()), "tok-offset"),
+                        token(String.format("  %3d", row.index()), "tok-index"),
+                        token(String.format("  %-14s", row.mnemonic()), "tok-mnemonic"),
+                        token(row.operand() == null ? "" : row.operand(), "tok-operand"));
+                setGraphic(flow);
             }
         });
         VBox.setVgrow(list, Priority.ALWAYS);
+        // 选中字节码行 → 回调，用于三视图联动（联动右侧检查器 + 源码定位）。
+        list.getSelectionModel().selectedItemProperty().addListener((obs, old, row) -> {
+            if (row != null && rowListener != null) {
+                rowListener.accept(row);
+            }
+        });
         getChildren().add(list);
+    }
+
+    /**
+     * 注册字节码行选中回调。
+     *
+     * @param listener 回调；接收被选中的行
+     */
+    public void setOnRowSelected(Consumer<Row> listener) {
+        this.rowListener = listener;
     }
 
     /**
@@ -91,5 +122,12 @@ public final class BytecodeView extends VBox {
                 return;
             }
         }
+    }
+
+    /** 构造一个携带分色样式类的文本片段。 */
+    private static Text token(String text, String styleClass) {
+        Text t = new Text(text);
+        t.getStyleClass().add(styleClass);
+        return t;
     }
 }

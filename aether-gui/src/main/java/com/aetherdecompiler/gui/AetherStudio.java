@@ -29,6 +29,7 @@ import com.aetherdecompiler.core.cfg.ControlFlowGraph;
 import com.aetherdecompiler.core.engine.DecompilerEngine;
 import com.aetherdecompiler.core.engine.DecompilationPipeline;
 import com.aetherdecompiler.core.engine.PluginHost;
+import com.aetherdecompiler.core.model.BasicBlock;
 import com.aetherdecompiler.core.model.Insn;
 import com.aetherdecompiler.core.model.MethodModel;
 import com.aetherdecompiler.gui.background.Backdrop;
@@ -214,6 +215,7 @@ public final class AetherStudio extends Application {
         classTree.setClassSelectListener(this::openClass);
         outputTree.setFileSelectListener(this::openOutputFile);
         codeView.setLineClickListener(this::onSourceLineClicked);
+        bytecodeView.setOnRowSelected(this::onBytecodeRowSelected);
 
         loadPrefs();
         refreshOutputTree();
@@ -1241,7 +1243,15 @@ public final class AetherStudio extends Application {
 
         // Phase 2–5：把 SSA / AST 两层中间表示接入界面。分析在后台完成，
         // 结果只读，因此可安全地回填到 JavaFX 视图。
-        analysisView.render(pipeline.analyze(result.model()));
+        DecompilationPipeline.ClassAnalysis analysis = pipeline.analyze(result.model());
+        analysisView.render(analysis);
+
+        // 缺陷修复：流水线状态此前写死为"只点亮前 3 段"，用户看不出 SSA/AST 是否真跑过。
+        // 现在按真实产物动态点亮，让"点了反编译但没变化"的困惑消失。
+        boolean hasSsa = analysis.methods().stream().anyMatch(m -> m.ssa() != null);
+        boolean hasAst = analysis.methods().stream().anyMatch(m -> m.ast() != null);
+        inspector.setPipelineState(result.model() != null, !result.cfgs().isEmpty(), hasSsa, hasAst);
+        inspector.setSelection(-1, null, null);
     }
 
     /**
@@ -1334,7 +1344,50 @@ public final class AetherStudio extends Application {
         int insnCount = cfg.instructions().size();
         int target = Math.min(line - 1, Math.max(0, insnCount - 1));
         bytecodeView.highlight(target);
+        showSelection(cfg, target);
         statusLabel.setText("源码行 " + line + " \u2192 指令 " + target);
+    }
+
+    /**
+     * 把当前选中的指令同步到右侧检查器（联动反馈）。
+     *
+     * <p>缺陷修复：此前点击源码只高亮字节码，右侧「小窗口」毫无变化，
+     * 用户看不出联动关系。现在把指令索引、助记符与所属基本块一并回填。</p>
+     *
+     * @param cfg   当前控制流图
+     * @param index 指令索引（{@code -1} 表示清空）
+     */
+    private void showSelection(ControlFlowGraph cfg, int index) {
+        if (cfg == null || index < 0 || index >= cfg.instructions().size()) {
+            inspector.setSelection(-1, null, null);
+            return;
+        }
+        Insn insn = cfg.instructions().get(index);
+        String blockLabel = null;
+        // 注意：Insn 不携带块回溯（保持不可变、轻量），块归属由 CFG 查询。
+        BasicBlock block = cfg.blockOfInsn(index);
+        if (block != null) {
+            blockLabel = "B" + block.id();
+        }
+        inspector.setSelection(insn.index(), insn.mnemonic(), blockLabel);
+    }
+
+    /**
+     * 点击字节码行时的联动：定位到右侧检查器，并把源码视图滚动到大致对应行。
+     *
+     * <p>缺陷修复：此前只有「源码 → 字节码」单向联动，反向点击字节码毫无反馈。</p>
+     *
+     * @param row 被选中的字节码行
+     */
+    private void onBytecodeRowSelected(BytecodeView.Row row) {
+        if (currentResult == null || currentResult.cfgs().isEmpty()) {
+            return;
+        }
+        ControlFlowGraph cfg = currentResult.cfgs().get(0);
+        showSelection(cfg, row.index());
+        // 指令索引 ≈ 源码行（保守近似），把源码视图滚到该行形成闭环反馈。
+        codeView.focusLine(Math.max(1, row.index() + 1));
+        statusLabel.setText("指令 " + row.index() + " " + row.mnemonic() + " \u2192 源码行 " + (row.index() + 1));
     }
 
     private void closeSource() {

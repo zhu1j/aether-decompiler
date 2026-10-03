@@ -39,6 +39,20 @@ public abstract class Expr extends AstNode {
         super(firstInsn, lastInsn);
     }
 
+    /** 取内部名的简单名：{@code java/lang/Object} → {@code Object}。 */
+    protected static String simpleName(String internal) {
+        if (internal == null) {
+            return "?";
+        }
+        String s = internal;
+        int semi = s.indexOf(';');
+        if (semi >= 0) {
+            s = s.substring(0, semi);
+        }
+        int slash = s.lastIndexOf('/');
+        return slash >= 0 ? s.substring(slash + 1) : s;
+    }
+
     /** @return 本表达式的结构渲染，用于调试与教学展示（非最终源码） */
     public abstract String render();
 
@@ -256,12 +270,18 @@ public abstract class Expr extends AstNode {
         @Override
         public String render() {
             StringBuilder sb = new StringBuilder();
-            if (receiver != null) {
-                sb.append(receiver.render()).append('.');
-            } else if (owner != null) {
-                sb.append(owner.replace('/', '.')).append('.');
+            if ("<init>".equals(name) && receiver instanceof Local l && l.slot() == 0) {
+                // 实例构造里对 this 的 <init> 调用即父类构造调用，惯用 super(...)。
+                sb.append("super");
+            } else {
+                if (receiver != null) {
+                    sb.append(receiver.render()).append('.');
+                } else if (owner != null) {
+                    sb.append(owner.replace('/', '.')).append('.');
+                }
+                sb.append(name);
             }
-            sb.append(name).append('(');
+            sb.append('(');
             for (int i = 0; i < args.size(); i++) {
                 if (i > 0) {
                     sb.append(", ");
@@ -298,7 +318,7 @@ public abstract class Expr extends AstNode {
 
         @Override
         public String render() {
-            StringBuilder sb = new StringBuilder("new ").append(type == null ? "?" : type.replace('/', '.')).append('(');
+            StringBuilder sb = new StringBuilder("new ").append(simpleName(type)).append('(');
             for (int i = 0; i < args.size(); i++) {
                 if (i > 0) {
                     sb.append(", ");
@@ -524,6 +544,104 @@ public abstract class Expr extends AstNode {
     }
 
     /**
+     * 字段访问：{@code getfield}/{@code getstatic} 读取，或作为 {@code putfield}/{@code putstatic} 的赋值目标。
+     *
+     * <p>{@code receiver} 为 {@code null} 表示静态字段；实例字段则渲染为 {@code recv.name}。</p>
+     */
+    public static final class FieldAccess extends Expr {
+        private final Expr receiver;
+        private final String owner;
+        private final String name;
+
+        public FieldAccess(int insn, Expr receiver, String owner, String name) {
+            super(insn, insn);
+            this.receiver = receiver;
+            this.owner = owner;
+            this.name = name;
+        }
+
+        public Expr receiver() {
+            return receiver;
+        }
+
+        public String owner() {
+            return owner;
+        }
+
+        public String name() {
+            return name;
+        }
+
+        @Override
+        public List<AstNode> children() {
+            return receiver == null ? List.of() : List.of(receiver);
+        }
+
+        @Override
+        public String render() {
+            if (receiver != null) {
+                return receiver.render() + "." + name;
+            }
+            return (owner == null || owner.isEmpty() ? "" : simpleName(owner) + ".") + name;
+        }
+    }
+
+    /** 数组长度：{@code arraylength} → {@code arr.length}。 */
+    public static final class ArrayLength extends Expr {
+        private final Expr array;
+
+        public ArrayLength(int insn, Expr array) {
+            super(insn, insn);
+            this.array = array;
+        }
+
+        public Expr array() {
+            return array;
+        }
+
+        @Override
+        public List<AstNode> children() {
+            return List.of(array);
+        }
+
+        @Override
+        public String render() {
+            return array.render() + ".length";
+        }
+    }
+
+    /** 数组创建：{@code newarray}/{@code anewarray} → {@code new T[size]}。 */
+    public static final class NewArray extends Expr {
+        private final String type;
+        private final Expr size;
+
+        public NewArray(int insn, String type, Expr size) {
+            super(insn, insn);
+            this.type = type;
+            this.size = size;
+        }
+
+        public String type() {
+            return type;
+        }
+
+        public Expr size() {
+            return size;
+        }
+
+        @Override
+        public List<AstNode> children() {
+            return size == null ? List.of() : List.of(size);
+        }
+
+        @Override
+        public String render() {
+            String t = type == null || type.isEmpty() ? "Object" : type.replace('/', '.');
+            return "new " + t + "[" + (size == null ? "" : size.render()) + "]";
+        }
+    }
+
+    /**
      * 兜底表达式：当某条指令无法被精确重建时，保底记录它的助记符与操作数，
      * 使 AST 始终完整、永不丢指令（便于源码映射与教学观察）。
      */
@@ -541,7 +659,7 @@ public abstract class Expr extends AstNode {
 
         @Override
         public String render() {
-            return "/*?*/" + text;
+            return text;
         }
     }
 }

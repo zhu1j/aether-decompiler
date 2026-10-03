@@ -40,6 +40,11 @@ public final class InspectorView extends VBox {
 
     private final VBox info = new VBox(2);
     private final VBox metrics = new VBox(6);
+    private final VBox selection = new VBox(4);
+    private final Label[] stageLabels = new Label[STAGES.length];
+
+    /** 流水线阶段名，与 {@link #buildPipeline()} 中的顺序一致。 */
+    private static final String[] STAGES = {"读取字节", "构建模型", "控制流图", "SSA", "AST"};
 
     /**
      * 创建检查器。
@@ -50,7 +55,8 @@ public final class InspectorView extends VBox {
 
         getChildren().add(section("类信息", info));
         getChildren().add(section("流水线状态", buildPipeline()));
-        getChildren().add(section("当前方法度量", metrics));
+        getChildren().add(section("选中指令", selection));
+        getChildren().add(section("整体度量", metrics));
 
         Label footer = new Label(AetherVersion.PROJECT + " " + AetherVersion.VERSION
                 + "\n\u00a9 2026 " + AetherVersion.AUTHOR + " (" + AetherVersion.AUTHOR_PEN_NAME + ")"
@@ -70,13 +76,60 @@ public final class InspectorView extends VBox {
 
     private VBox buildPipeline() {
         VBox box = new VBox(4);
-        String[] stages = {"读取字节", "构建模型", "控制流图", "SSA", "AST"};
-        for (int i = 0; i < stages.length; i++) {
-            Label l = new Label((i < 3 ? "\u2713  " : "\u00b7  ") + stages[i]);
-            l.getStyleClass().add(i < 3 ? "stage-done" : "stage-wait");
+        for (int i = 0; i < STAGES.length; i++) {
+            Label l = new Label("\u00b7  " + STAGES[i]);
+            l.getStyleClass().add("stage-wait");
+            stageLabels[i] = l;
             box.getChildren().add(l);
         }
         return box;
+    }
+
+    /**
+     * 按真实分析结果刷新流水线阶段状态。
+     *
+     * <p>缺陷修复：此前阶段完成状态是写死的（永远只点亮前 3 段），用户因此
+     * 看不出 SSA / AST 是否真的跑过。现在依据实际产物动态点亮。</p>
+     *
+     * @param model 类模型是否就绪
+     * @param cfg   是否已有控制流图
+     * @param ssa   是否已有 SSA 形式
+     * @param ast   是否已有 AST
+     */
+    public void setPipelineState(boolean model, boolean cfg, boolean ssa, boolean ast) {
+        boolean[] flags = {true, model, cfg, ssa, ast};
+        for (int i = 0; i < STAGES.length; i++) {
+            Label l = stageLabels[i];
+            if (l == null) {
+                continue;
+            }
+            l.setText((flags[i] ? "\u2713  " : "\u00b7  ") + STAGES[i]);
+            l.getStyleClass().removeAll("stage-done", "stage-wait");
+            l.getStyleClass().add(flags[i] ? "stage-done" : "stage-wait");
+        }
+    }
+
+    /**
+     * 展示当前选中的指令 / 基本块，实现源码 ↔ 字节码的联动反馈。
+     *
+     * @param insnIndex 指令索引；{@code -1} 表示清空
+     * @param mnemonic  助记符；{@code null} 表示清空
+     * @param blockLabel 基本块标签，可为 {@code null}
+     */
+    public void setSelection(int insnIndex, String mnemonic, String blockLabel) {
+        selection.getChildren().clear();
+        if (mnemonic == null) {
+            selection.getChildren().add(plain("点击左侧源码行或字节码行以定位"));
+            return;
+        }
+        GridPane grid = new GridPane();
+        grid.setHgap(10);
+        grid.setVgap(3);
+        int row = 0;
+        row = addRow(grid, row, "指令", "#" + insnIndex);
+        row = addRow(grid, row, "助记符", mnemonic);
+        row = addRow(grid, row, "基本块", blockLabel == null ? "-" : blockLabel);
+        selection.getChildren().add(grid);
     }
 
     /**
@@ -89,6 +142,7 @@ public final class InspectorView extends VBox {
         if (model == null) {
             info.getChildren().add(plain("\u5c1a\u672a\u6253\u5f00\u7c7b"));
             metrics.getChildren().clear();
+            setSelection(-1, null, null);
             return;
         }
         GridPane grid = new GridPane();

@@ -23,6 +23,7 @@
 | [10](10-wallpaper-json-parse.md) | Wallpaper `project.json` 解析错误 | 解析 | 嵌套键 `schemecolor.type` 遮蔽顶层 `type` |
 | [11](11-webview-white-veil.md) | 网页壁纸引入的透明白遮罩（回归） | 渲染/层叠 | WebView 未加载时的白页被半透明化成整屏遮罩 |
 | [12](12-task-progress.md) | 任务进度条（空闲灰条） | 交互/并发 | 空闲不隐藏 + 任务未上报/绑定进度 |
+| [15](15-ast-placeholder-and-gui-contrast.md) | AST 占位符 `/*?*/` 与配色/联动 | 解析/观感/交互 | 操作数分隔符是点而非斜杠，连锁击穿 new 合并与字段命名 |
 
 ---
 

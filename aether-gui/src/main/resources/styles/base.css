@@ -653,3 +653,31 @@
 .bg-active .root-stack {
     -fx-background-color: transparent;
 }
+
+/* ------------------------------------------------------------- 分析视图 */
+
+.analysis-view {
+    -fx-background-color: -ae-bg;
+}
+
+/* 缺陷修复：此前分析区沿用 JavaFX TextArea 的默认内层底色（灰白），
+   在深色皮肤上极其刺眼。改为完全由皮肤令牌驱动，随皮肤自适应。 */
+.analysis-text {
+    -fx-background-color: -ae-bg;
+    -fx-control-inner-background: -ae-bg;
+    -fx-text-fill: -ae-text;
+    -fx-highlight-fill: derive(-ae-accent, -40%);
+    -fx-highlight-text-fill: -ae-text;
+}
+
+.analysis-text .content,
+.analysis-text .scroll-pane,
+.analysis-text .scroll-pane .viewport {
+    -fx-background-color: -ae-bg;
+}
+
+/* 字节码行的分色令牌：全部基于皮肤令牌，随皮肤自适应对比度。 */
+.tok-offset   { -fx-fill: -ae-text-dim; }
+.tok-index    { -fx-fill: -ae-accent; }
+.tok-mnemonic { -fx-fill: -ae-accent-2; -fx-font-weight: bold; }
+.tok-operand  { -fx-fill: -ae-text; }

@@ -214,16 +214,12 @@ public final class ExpressionBuilder {
             }
             case 178, 180, 179, 181 -> buildField(insn);
             case 182, 183, 184, 185, 186 -> buildCall(insn);
-            case 187 -> {
-                Expr call = popSafe(insn.index()); // 紧随其后的 <init> 调用（近似）
-                push(new Expr.New(insn.index(), insn.operand(), List.of()));
-                if (call != null) {
-                    push(call);
-                    popSafe(insn.index());
-                }
+            case 187 -> push(new Expr.New(insn.index(), insn.operand(), List.of()));
+            case 188, 189 -> {
+                Expr size = popSafe(insn.index());
+                push(new Expr.NewArray(insn.index(), insn.operand(), size));
             }
-            case 188, 189 -> push(new Expr.Opaque(insn.index(), "newarray " + insn.operand()));
-            case 190 -> push(new Expr.Opaque(insn.index(), "arraylength"));
+            case 190 -> push(new Expr.ArrayLength(insn.index(), popSafe(insn.index())));
             case 191 -> {
                 terminatorKind = "throw";
                 statements.add(new Stmt.Throw(insn.index(), popSafe(insn.index())));
@@ -271,24 +267,17 @@ public final class ExpressionBuilder {
     private void buildField(Insn insn) {
         int op = insn.opcode();
         String field = insn.operand().isEmpty() ? ("field@" + insn.index()) : insn.operand();
+        String owner = fieldOwner(field);
+        String name = simpleField(field);
         if (op == 178 || op == 180) {
-            // getstatic / getfield。
-            if (op == 180) {
-                Expr recv = popSafe(insn.index());
-                push(new Expr.Opaque(insn.index(), recv.render() + "." + simpleField(field)));
-            } else {
-                push(new Expr.Opaque(insn.index(), simpleField(field)));
-            }
+            // getstatic / getfield：读取 → 作为值压栈的字段访问节点。
+            Expr recv = op == 180 ? popSafe(insn.index()) : null;
+            push(new Expr.FieldAccess(insn.index(), recv, owner, name));
         } else {
-            // putstatic / putfield。
+            // putstatic / putfield：写入 → 字段访问作为赋值目标。
             Expr val = popSafe(insn.index());
-            Expr target;
-            if (op == 181) {
-                Expr recv = popSafe(insn.index());
-                target = new Expr.Opaque(insn.index(), recv.render() + "." + simpleField(field));
-            } else {
-                target = new Expr.Opaque(insn.index(), simpleField(field));
-            }
+            Expr recv = op == 181 ? popSafe(insn.index()) : null;
+            Expr target = new Expr.FieldAccess(insn.index(), recv, owner, name);
             statements.add(new Stmt.ExprStmt(insn.index(), new Expr.Assign(insn.index(), target, val)));
         }
     }
@@ -303,10 +292,11 @@ public final class ExpressionBuilder {
         if (p >= 0) {
             String sig = operand.substring(0, p);
             desc = operand.substring(p);
-            int slash = sig.lastIndexOf('/');
-            if (slash >= 0) {
-                owner = sig.substring(0, slash);
-                name = sig.substring(slash + 1);
+            // 解析器把方法操作数拼成 «owner.name desc»，分隔符是点（owner 内部才用斜杠）。
+            int dot = sig.lastIndexOf('.');
+            if (dot >= 0) {
+                owner = sig.substring(0, dot);
+                name = sig.substring(dot + 1);
             } else {
                 name = sig;
             }
@@ -316,15 +306,21 @@ public final class ExpressionBuilder {
         for (int i = 0; i < argc; i++) {
             args.add(0, popSafe(insn.index()));
         }
-        Expr receiver = null;
-        if (op != 184 && !(op == 183 && "<init>".equals(name))) {
-            receiver = popSafe(insn.index());
-        }
-        Expr call = new Expr.Call(insn.index(), receiver, owner, name, desc, args);
         if (op == 183 && "<init>".equals(name)) {
-            // 构造函数调用作为语句。
-            statements.add(new Stmt.ExprStmt(insn.index(), call));
-        } else if (desc.endsWith(")V")) {
+            // 构造函数：若接收者是尚未完成的 new，则合并成一条 new T(...)。
+            Expr receiver = popSafe(insn.index());
+            if (receiver instanceof Expr.New n) {
+                push(new Expr.New(n.firstInsn(), n.type(), args));
+            } else {
+                // super()/this() 等：作为语句调用。
+                statements.add(new Stmt.ExprStmt(insn.index(),
+                        new Expr.Call(insn.index(), receiver, owner, name, desc, args)));
+            }
+            return;
+        }
+        Expr receiver = op == 184 ? null : popSafe(insn.index());
+        Expr call = new Expr.Call(insn.index(), receiver, owner, name, desc, args);
+        if (desc.endsWith(")V")) {
             statements.add(new Stmt.ExprStmt(insn.index(), call));
         } else {
             push(call);
@@ -348,14 +344,25 @@ public final class ExpressionBuilder {
     }
 
     private static String simpleField(String field) {
-        // operand 形如 owner/Name:Desc → 取简单名。
+        // operand 形如 «owner.name:Desc» → 取字段简单名。
         String s = field;
         int colon = s.indexOf(':');
         if (colon >= 0) {
             s = s.substring(0, colon);
         }
-        int slash = s.lastIndexOf('/');
-        return slash >= 0 ? s.substring(slash + 1) : s;
+        int dot = s.lastIndexOf('.');
+        return dot >= 0 ? s.substring(dot + 1) : s;
+    }
+
+    /** 从 {@code owner.name:Desc} 取字段所属类（内部名，无则空串）。 */
+    private static String fieldOwner(String field) {
+        String s = field;
+        int colon = s.indexOf(':');
+        if (colon >= 0) {
+            s = s.substring(0, colon);
+        }
+        int dot = s.lastIndexOf('.');
+        return dot >= 0 ? s.substring(0, dot) : "";
     }
 
     private static String quoteIfString(String operand) {

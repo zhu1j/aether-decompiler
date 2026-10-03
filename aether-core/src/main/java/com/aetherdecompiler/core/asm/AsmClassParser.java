@@ -203,7 +203,8 @@ public final class AsmClassParser {
         } else if (n instanceof IntInsnNode in) {
             operand = String.valueOf(in.operand);
         } else if (n instanceof LdcInsnNode ldc) {
-            operand = String.valueOf(ldc.cst);
+            // 字符串常量显式加引号，避免与标识符混淆（IDEA 风格观感）。
+            operand = ldc.cst instanceof String s ? "\"" + s + "\"" : String.valueOf(ldc.cst);
         } else if (n instanceof TypeInsnNode t) {
             operand = t.desc;
         } else if (n instanceof MethodInsnNode m) {
