@@ -71,7 +71,8 @@ public final class SsaBuilder {
         List<Insn> insns = cfg.instructions();
         int blockCount = cfg.blockCount();
         if (blockCount == 0) {
-            return new SsaForm(owner.name(), method.id(), 0, List.of(), Map.of(), Map.of());
+            return new SsaForm(owner.name(), method.id(), 0, List.of(), Map.of(), Map.of(),
+                    StackLiftResult.empty(owner.name(), method.id()));
         }
 
         // 0. 确定槽位上界：既尊重 maxLocals，又容忍指令中出现的更大槽号。
@@ -167,8 +168,10 @@ public final class SsaBuilder {
         for (List<PhiNode> list : blockPhis) {
             allPhis.addAll(list);
         }
+        // C1 操作数栈提升：把隐式操作数栈符号化为 SSA 值，并记录汇合处的栈 phi。
+        StackLiftResult stackLift = new StackLifter().lift(owner, method, cfg, dom);
         return new SsaForm(owner.name(), method.id(), slotCount,
-                allPhis, renamer.definitions, renamer.uses);
+                allPhis, renamer.definitions, renamer.uses, stackLift);
     }
 
     /**

@@ -71,6 +71,8 @@ public final class JavaAstRenderer {
     private Map<Integer, String> localNames = Map.of();
     /** 当前方法是否为静态（影响槽 0 的 this 语义）。 */
     private boolean currentIsStatic = false;
+    /** 无法精确重建时的策略；默认宽松（注释占位），可切换为严格（抛错）。 */
+    private OpaqueMode opaqueMode = OpaqueMode.LENIENT;
 
     /** 槽位 → 显示名：优先真实变量名，否则回退 {@code this}/{@code vN}。 */
     private String nameOf(int slot) {
@@ -87,6 +89,49 @@ public final class JavaAstRenderer {
      * @param body 方法体 AST
      * @return 渲染单元（路径为 {@code <Owner>.java}，含源码映射）
      */
+    /**
+     * 设置“无法精确重建”时的策略。
+     *
+     * <p>{@link OpaqueMode#LENIENT}：以注释占位，尽量保持可编译（默认）；
+     * {@link OpaqueMode#STRICT}：遇到无法重建的片段立即抛
+     * {@link UnresolvedCodeException}。</p>
+     *
+     * @param mode 目标策略；传 {@code null} 视为宽松
+     */
+    public void setOpaqueMode(OpaqueMode mode) {
+        this.opaqueMode = mode == null ? OpaqueMode.LENIENT : mode;
+    }
+
+    /** @return 当前策略 */
+    public OpaqueMode opaqueMode() {
+        return opaqueMode;
+    }
+
+    /**
+     * 按当前策略校验一个表达式是否可精确重建：严格模式遇 {@link Expr.Opaque} 抛错，
+     * 宽松模式静默返回。供自动化校验与回归测试直接调用。
+     *
+     * @param e 待校验表达式
+     */
+    public void strictCheck(Expr e) {
+        if (e instanceof Expr.Opaque) {
+            unresolved(e, "unresolved expression");
+        }
+    }
+
+    /**
+     * 严格模式下遇到无法重建的片段立即抛错；宽松模式返回 {@code null}，由调用方按占位处理。
+     *
+     * @param e 待检查的表达式
+     * @return 宽松模式下恒为 {@code null}
+     */
+    private Void unresolved(Expr e, String detail) {
+        if (opaqueMode == OpaqueMode.STRICT) {
+            throw new UnresolvedCodeException(e == null ? -1 : e.firstInsn(), detail);
+        }
+        return null;
+    }
+
     public SourceTree render(MethodBody body) {
         if (body == null) {
             return SourceTree.of("Unknown.java", "// <no method body>\n", null);
@@ -725,7 +770,8 @@ public final class JavaAstRenderer {
             if (r.value() == null) {
                 emitLine(s, "return;");
             } else if (r.value() instanceof Expr.Opaque) {
-                // 返回值未能重建：按声明类型给出合法默认值并注明，保持可编译。
+                // 严格模式：返回值无法重建即报错；宽松模式：按声明类型给合法默认值并注明，保持可编译。
+                unresolved(r.value(), "unresolved return value");
                 emitLine(s, "return " + defaultLiteral(currentReturnType) + "; // unresolved");
             } else if ("boolean".equals(currentReturnType)) {
                 // 布尔语义提升：ireturn 0/1 还原为 return false/true。
@@ -812,6 +858,10 @@ public final class JavaAstRenderer {
     private String expr(Expr e) {
         if (e == null) {
             return "?";
+        }
+        if (e instanceof Expr.Opaque) {
+            // 宽松模式：随后由 Expr.render() 输出注释占位；严格模式：立即抛错并保留上下文。
+            unresolved(e, "unresolved expression");
         }
         return e.render();
     }

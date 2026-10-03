@@ -139,6 +139,15 @@ public final class AnalysisView extends SplitPane {
                 m.ssa().phis().forEach(phi -> ssa.append("    phi  ").append(phi.display()).append('\n'));
                 m.ssa().definitions().forEach((idx, def) ->
                         ssa.append("    [").append(idx).append("] 定义 ").append(def.name()).append('\n'));
+                // 操作数栈提升（C1）：展示隐式栈被符号化后的规模与汇合处的栈 phi。
+                var lift = m.ssa().stackLift();
+                ssa.append("    栈提升: 最大栈深 ").append(lift.maxDepth())
+                        .append("，栈单元 ").append(lift.cellCount())
+                        .append("，栈 phi ").append(lift.phiCount()).append('\n');
+                lift.phis().forEach(phi -> ssa.append("    ").append(phi.display()).append('\n'));
+                if (lift.isApproximate()) {
+                    ssa.append("    （近似：").append(lift.approximateReason()).append("）\n");
+                }
             }
             SourceTree tree = renderer.render(m.ast());
             if (tree != null && tree.content() != null) {

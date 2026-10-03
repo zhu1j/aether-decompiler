@@ -54,8 +54,12 @@ public final class SsaForm implements IRObject {
     private final List<PhiNode> phis;
     private final Map<Integer, SsaVariable> definitions;
     private final Map<Integer, List<SsaVariable>> uses;
+    /** 操作数栈提升结果（C1）：把隐式栈单元符号化为 SSA 值并记录栈 phi。 */
+    private final StackLiftResult stackLift;
 
     /**
+     * 兼容旧签名的构造器：不含栈提升结果。
+     *
      * @param ownerClass  所属类的内部名
      * @param methodId    方法标识符 {@code name + descriptor}
      * @param slotCount   局部变量槽位数
@@ -67,6 +71,24 @@ public final class SsaForm implements IRObject {
                    List<PhiNode> phis,
                    Map<Integer, SsaVariable> definitions,
                    Map<Integer, List<SsaVariable>> uses) {
+        this(ownerClass, methodId, slotCount, phis, definitions, uses,
+                StackLiftResult.empty(ownerClass, methodId));
+    }
+
+    /**
+     * @param ownerClass  所属类的内部名
+     * @param methodId    方法标识符 {@code name + descriptor}
+     * @param slotCount   局部变量槽位数
+     * @param phis        全部 phi 节点
+     * @param definitions 指令索引 → 它定义的 SSA 值
+     * @param uses        指令索引 → 它读取的 SSA 值列表
+     * @param stackLift   操作数栈提升结果（不可为 {@code null}）
+     */
+    public SsaForm(String ownerClass, String methodId, int slotCount,
+                   List<PhiNode> phis,
+                   Map<Integer, SsaVariable> definitions,
+                   Map<Integer, List<SsaVariable>> uses,
+                   StackLiftResult stackLift) {
         this.ownerClass = ownerClass;
         this.methodId = methodId;
         this.slotCount = slotCount;
@@ -77,6 +99,8 @@ public final class SsaForm implements IRObject {
             copy.put(e.getKey(), List.copyOf(e.getValue()));
         }
         this.uses = Collections.unmodifiableMap(copy);
+        this.stackLift = stackLift == null
+                ? StackLiftResult.empty(ownerClass, methodId) : stackLift;
     }
 
     /** @return 所属类的内部名 */
@@ -142,6 +166,11 @@ public final class SsaForm implements IRObject {
     /** @return phi 节点的数量 */
     public int phiCount() {
         return phis.size();
+    }
+
+    /** @return 操作数栈提升结果（C1），永不为 {@code null} */
+    public StackLiftResult stackLift() {
+        return stackLift;
     }
 
     @Override
