@@ -64,6 +64,7 @@ import javafx.scene.control.Label;
 import javafx.scene.control.ListCell;
 import javafx.scene.control.ListView;
 import javafx.scene.control.ProgressBar;
+import javafx.scene.control.ScrollPane;
 import javafx.scene.control.Slider;
 import javafx.scene.control.SplitPane;
 import javafx.scene.control.Tab;
@@ -205,6 +206,11 @@ public final class AetherStudio extends Application {
 
         rootStack.getStyleClass().add("root-stack");
         rootStack.getChildren().addAll(buildBackdropLayer(), scrim, root);
+        // 缺陷修复：导入 JAR 并分析后，右侧检查器与工作区内容被填充，主面板的“最小高度”
+        // 会超过窗口高度。StackPane 默认把放不下的子节点居中，于是顶部被顶出视口
+        // （表现为“导入 JAR 后顶部按钮上移、窗口偏小就移出视窗”）。这里让根面板可被压缩
+        // （min 高为 0），并把 StackPane 改为左上对齐，保证始终从窗口顶部开始布局。
+        rootRootAnchor(rootStack, root);
 
         // 缺陷修复：窗口不再使用固定高度，而是按当前屏幕的“可视区域”自适应，
         // 并预留边距，避免窗口高于屏幕、用户每次运行都要手动调整高度。
@@ -1086,6 +1092,16 @@ public final class AetherStudio extends Application {
 
     // ---------------------------------------------------------------- 工作区
 
+    /**
+     * 让主面板随窗口收缩而不溢出：把 StackPane 设为左上对齐，并清除主面板的最小高度，
+     * 使其即便内容变高也只会从顶部开始填充，不会把顶栏挤出视窗。
+     */
+    private static void rootRootAnchor(StackPane stack, BorderPane root) {
+        stack.setAlignment(Pos.TOP_LEFT);
+        root.setMinHeight(0);
+        root.setMinWidth(0);
+    }
+
     private Region buildWorkspace() {
         // 左侧并行展示两个结构：上方是待反编译来源（JAR / 目录）的类结构，
         // 下方是反编译输出目录的源码文件结构。
@@ -1117,13 +1133,22 @@ public final class AetherStudio extends Application {
         SplitPane.setResizableWithParent(nav, Boolean.FALSE);
         centre.setDividerPositions(0.22);
 
+        // 缺陷修复：右侧检查器内容会随分析结果增删。窗口偏矮时，若把检查器直接塞进
+        // 分割面板，其内容最小高度会把整块工作区顶高，进而把顶栏挤出视窗。这里给检查器
+        // 套一层可纵向滚动的容器，内容再高也能在面板内滚动，而不是撑大整窗最小高度。
         VBox inspectorPane = new VBox(inspector);
         inspectorPane.getStyleClass().add("aside");
         inspectorPane.setPrefWidth(260);
+        ScrollPane inspectorScroll = new ScrollPane(inspectorPane);
+        inspectorScroll.getStyleClass().add("aside-scroll");
+        inspectorScroll.setFitToWidth(true);
+        inspectorScroll.setHbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
+        inspectorScroll.setVbarPolicy(ScrollPane.ScrollBarPolicy.AS_NEEDED);
+        SplitPane.setResizableWithParent(inspectorScroll, Boolean.FALSE);
 
-        SplitPane root = new SplitPane(centre, inspectorPane);
+        SplitPane root = new SplitPane(centre, inspectorScroll);
         root.setDividerPositions(0.80);
-        SplitPane.setResizableWithParent(inspectorPane, Boolean.FALSE);
+        SplitPane.setResizableWithParent(inspectorScroll, Boolean.FALSE);
         return root;
     }
 
