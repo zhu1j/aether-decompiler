@@ -127,6 +127,18 @@
     -fx-border-width: 0 0 0 1;
 }
 
+/* 缺陷修复：给右侧检查器新加的滚动容器，其 ScrollPane 视口默认是白色，之前没覆盖，
+   导致整个右侧面板变成白底。这里让容器与视口都跟随皮肤面板令牌，恢复原来的深色观感。 */
+.aside-scroll {
+    -fx-background-color: -ae-panel;
+    -fx-background-insets: 0;
+    -fx-padding: 0;
+}
+
+.aside-scroll > .viewport {
+    -fx-background-color: -ae-panel;
+}
+
 .panel-header {
     -fx-text-fill: -ae-text-dim;
     -fx-font-size: 11px;
@@ -671,6 +683,8 @@
 .bg-active .workspace .tab:selected,
 .bg-active .nav,
 .bg-active .aside,
+.bg-active .aside-scroll,
+.bg-active .aside-scroll > .viewport,
 .bg-active .event-dock,
 .bg-active .statusbar,
 .bg-active .class-tree-view,
