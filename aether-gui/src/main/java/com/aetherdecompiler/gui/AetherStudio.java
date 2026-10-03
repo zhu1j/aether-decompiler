@@ -27,6 +27,7 @@ import com.aetherdecompiler.api.OptionRegistry;
 import com.aetherdecompiler.api.Options;
 import com.aetherdecompiler.core.cfg.ControlFlowGraph;
 import com.aetherdecompiler.core.engine.DecompilerEngine;
+import com.aetherdecompiler.core.engine.DecompilationPipeline;
 import com.aetherdecompiler.core.engine.PluginHost;
 import com.aetherdecompiler.core.model.Insn;
 import com.aetherdecompiler.core.model.MethodModel;
@@ -37,6 +38,7 @@ import com.aetherdecompiler.gui.background.BundledBackdrops;
 import com.aetherdecompiler.gui.background.WallpaperProject;
 import com.aetherdecompiler.gui.skin.Skin;
 import com.aetherdecompiler.gui.skin.SkinManager;
+import com.aetherdecompiler.gui.view.AnalysisView;
 import com.aetherdecompiler.gui.view.BytecodeView;
 import com.aetherdecompiler.gui.view.CfgView;
 import com.aetherdecompiler.gui.view.ClassTreeView;
@@ -150,6 +152,8 @@ public final class AetherStudio extends Application {
     private final OutputTreeView outputTree = new OutputTreeView();
     private final EventsView eventsView = new EventsView();
     private final InspectorView inspector = new InspectorView();
+    private final AnalysisView analysisView = new AnalysisView();
+    private final DecompilationPipeline pipeline = new DecompilationPipeline();
 
     private final ComboBox<Skin> skinBox = new ComboBox<>();
     private final ProgressBar progress = new ProgressBar(0);
@@ -1063,7 +1067,8 @@ public final class AetherStudio extends Application {
         tabs.getTabs().addAll(
                 tab("源码", codeView),
                 tab("字节码", bytecodeView),
-                tab("控制流图", cfgView));
+                tab("控制流图", cfgView),
+                tab("分析", analysisView));
 
         SplitPane centre = new SplitPane(nav, tabs);
         centre.getStyleClass().add("main-split");
@@ -1233,6 +1238,10 @@ public final class AetherStudio extends Application {
             bytecodeView.setRows(List.of());
             cfgView.render(null);
         }
+
+        // Phase 2–5：把 SSA / AST 两层中间表示接入界面。分析在后台完成，
+        // 结果只读，因此可安全地回填到 JavaFX 视图。
+        analysisView.render(pipeline.analyze(result.model()));
     }
 
     /**

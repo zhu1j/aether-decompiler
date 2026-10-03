@@ -42,6 +42,16 @@ public final class Sample {
     }
 
     /**
+     * 一个纯直线方法：没有分支、没有循环，用于检验“不需要 phi”的基线。
+     *
+     * @param x 输入
+     * @return x 的平方
+     */
+    public int square(int x) {
+        return x * x;
+    }
+
+    /**
      * 用循环与守卫求 1..n 之和。
      *
      * @param n 上界

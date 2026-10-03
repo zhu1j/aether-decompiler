@@ -30,6 +30,7 @@ import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.tree.AbstractInsnNode;
 import org.objectweb.asm.tree.ClassNode;
+import org.objectweb.asm.tree.FieldInsnNode;
 import org.objectweb.asm.tree.FieldNode;
 import org.objectweb.asm.tree.FrameNode;
 import org.objectweb.asm.tree.IincInsnNode;
@@ -207,6 +208,8 @@ public final class AsmClassParser {
             operand = t.desc;
         } else if (n instanceof MethodInsnNode m) {
             operand = m.owner + "." + m.name + m.desc;
+        } else if (n instanceof FieldInsnNode f) {
+            operand = f.owner + "." + f.name + ":" + f.desc;
         }
 
         return new Insn(index, opcode, mnemonic, operand, targets);

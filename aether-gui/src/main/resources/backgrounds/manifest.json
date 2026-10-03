@@ -1,22 +1,12 @@
 {
   "version": 1,
   "name": "aether-decompiler default backdrops",
-  "note": "Preview images bundled with the repository; seeded into ~/.aether/backgrounds on first launch.",
+  "note": "Preview images bundled with the repository; seeded into ~/.aether/backgrounds on first launch. 动态壁纸请通过「导入」手动添加 Wallpaper Engine 工程文件夹。",
   "items": [
-    {
-      "id": "1477067414",
-      "title": "Saber Artoria Pendragon[1080P]",
-      "file": "1477067414.gif"
-    },
     {
       "id": "1726244765",
       "title": "尼尔机械纪元4k壁纸",
       "file": "1726244765.jpg"
-    },
-    {
-      "id": "2004955866",
-      "title": "游戏人生零-休比",
-      "file": "2004955866.gif"
     },
     {
       "id": "2153209375",
@@ -24,29 +14,9 @@
       "file": "2153209375.jpg"
     },
     {
-      "id": "2447928310",
-      "title": "Floating In Space By VISUALDON",
-      "file": "2447928310.gif"
-    },
-    {
       "id": "2626380607",
       "title": "吾王美如画",
       "file": "2626380607.jpg"
-    },
-    {
-      "id": "2718289755",
-      "title": "Capt.Luke's Audio Visualizer Mark 20-3D",
-      "file": "2718289755.gif"
-    },
-    {
-      "id": "3058956372",
-      "title": "⌈ Geometry Series ⌋ Hexagons · Blue Archives",
-      "file": "3058956372.gif"
-    },
-    {
-      "id": "3207017429",
-      "title": "in the snow V 7.0 (Russian folk)",
-      "file": "3207017429.gif"
     },
     {
       "id": "3246876921",
@@ -59,29 +29,9 @@
       "file": "3297618899.jpg"
     },
     {
-      "id": "3401345669",
-      "title": "Ender Squirtle (Pokemon) WUHD (4K)",
-      "file": "3401345669.gif"
-    },
-    {
       "id": "3410204088",
       "title": "阿尔托莉雅",
       "file": "3410204088.jpg"
-    },
-    {
-      "id": "3413921910",
-      "title": "Meteors at Dawn [4K]",
-      "file": "3413921910.gif"
-    },
-    {
-      "id": "3442996884",
-      "title": "阿尔托莉雅-潘德拉贡（dy.Caritas）",
-      "file": "3442996884.gif"
-    },
-    {
-      "id": "3496849678",
-      "title": "十二时辰-SYKM",
-      "file": "3496849678.gif"
     }
   ]
 }
