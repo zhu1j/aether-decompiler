@@ -21,8 +21,11 @@ package com.aetherdecompiler.core.ast;
 import com.aetherdecompiler.core.cfg.CfgBuilder;
 import com.aetherdecompiler.core.cfg.ControlFlowGraph;
 import com.aetherdecompiler.core.cfg.DominatorTree;
+import com.aetherdecompiler.core.model.AccessFlags;
 import com.aetherdecompiler.core.model.ClassModel;
 import com.aetherdecompiler.core.model.MethodModel;
+
+import java.util.function.IntFunction;
 
 /**
  * AST 编排器：把“方法模型 + CFG + 支配树”推进到一棵可读的语句树。
@@ -47,7 +50,7 @@ public final class AstBuilder {
     public MethodBody build(ClassModel owner, MethodModel method) {
         ControlFlowGraph cfg = cfgBuilder.build(owner, method);
         DominatorTree dom = DominatorTree.of(cfg);
-        ControlStructurer structurer = new ControlStructurer(cfg, dom);
+        ControlStructurer structurer = new ControlStructurer(cfg, dom, varNamer(method));
         Stmt body = structurer.structure();
         return new MethodBody(owner.name(), method.name(), method.descriptor(),
                 method.access(), body, structurer.isIrreducible());
@@ -64,9 +67,21 @@ public final class AstBuilder {
      */
     public MethodBody build(ClassModel owner, MethodModel method,
                             ControlFlowGraph cfg, DominatorTree dom) {
-        ControlStructurer structurer = new ControlStructurer(cfg, dom);
+        ControlStructurer structurer = new ControlStructurer(cfg, dom, varNamer(method));
         Stmt body = structurer.structure();
         return new MethodBody(owner.name(), method.name(), method.descriptor(),
                 method.access(), body, structurer.isIrreducible());
+    }
+
+    /**
+     * 按“槽位 → Java 显示名”的规则构造命名器：
+     * 实例方法的槽 0 是 {@code this} 引用；其余槽位（含形参）统一命名为 {@code vN}，
+     * 与渲染器生成的形参名保持一致，从而让方法签名与体中的引用互相对应。
+     *
+     * <p>将来接入 LocalVariableTable / SSA 时，只需替换本命名器即可恢复真实变量名。</p>
+     */
+    private static IntFunction<String> varNamer(MethodModel method) {
+        boolean isStatic = AccessFlags.isStatic(method.access());
+        return slot -> (slot == 0 && !isStatic) ? "this" : ("v" + slot);
     }
 }

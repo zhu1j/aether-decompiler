@@ -67,14 +67,26 @@ public final class ControlStructurer {
     private final Map<Integer, Integer> loopFollow = new HashMap<>();
     private final boolean[] emitted;
     private boolean irreducible;
+    private final java.util.function.IntFunction<String> varNamer;
 
     /**
      * @param cfg 控制流图
      * @param dom 支配树
      */
     public ControlStructurer(ControlFlowGraph cfg, DominatorTree dom) {
+        this(cfg, dom, null);
+    }
+
+    /**
+     * @param cfg      控制流图
+     * @param dom      支配树
+     * @param varNamer 槽位 → 显示名的映射（可传 SSA 名或 {@code this}）；{@code null} 时用 {@code vN}
+     */
+    public ControlStructurer(ControlFlowGraph cfg, DominatorTree dom,
+                             java.util.function.IntFunction<String> varNamer) {
         this.cfg = cfg;
         this.dom = dom;
+        this.varNamer = varNamer;
         this.insns = cfg.instructions();
         this.emitted = new boolean[Math.max(1, cfg.blockCount())];
         this.predecessors = computePredecessors();
@@ -372,7 +384,7 @@ public final class ControlStructurer {
 
     private ExpressionBuilder.Result reconstruct(int blockId) {
         BasicBlock b = cfg.block(blockId);
-        return ExpressionBuilder.plain().build(insns, b.firstInsn(), b.lastInsn());
+        return new ExpressionBuilder(varNamer).build(insns, b.firstInsn(), b.lastInsn());
     }
 
     private Stmt linearFallback() {

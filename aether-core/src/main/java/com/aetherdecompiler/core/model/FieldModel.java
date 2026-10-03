@@ -36,6 +36,7 @@ public final class FieldModel {
     private final String name;
     private final String descriptor;
     private final String signature;
+    private final Object constantValue;
 
     /**
      * @param access     原始访问标志
@@ -44,10 +45,23 @@ public final class FieldModel {
      * @param signature  泛型签名，或 {@code null}
      */
     public FieldModel(int access, String name, String descriptor, String signature) {
+        this(access, name, descriptor, signature, null);
+    }
+
+    /**
+     * @param access        原始访问标志
+     * @param name          字段名
+     * @param descriptor    字段描述符，例如 {@code "Ljava/lang/String;"}
+     * @param signature     泛型签名，或 {@code null}
+     * @param constantValue 编译期常量值（ConstantValue 属性），无则为 {@code null}
+     */
+    public FieldModel(int access, String name, String descriptor, String signature,
+                      Object constantValue) {
         this.access = access;
         this.name = Objects.requireNonNull(name, "name");
         this.descriptor = Objects.requireNonNull(descriptor, "descriptor");
         this.signature = signature;
+        this.constantValue = constantValue;
     }
 
     /** @return 原始访问标志 */
@@ -68,6 +82,11 @@ public final class FieldModel {
     /** @return 泛型签名，或 {@code null} */
     public String signature() {
         return signature;
+    }
+
+    /** @return 编译期常量值（ConstantValue 属性），无则为 {@code null} */
+    public Object constantValue() {
+        return constantValue;
     }
 
     @Override

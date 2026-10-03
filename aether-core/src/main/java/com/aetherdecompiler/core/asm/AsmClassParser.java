@@ -36,6 +36,7 @@ import org.objectweb.asm.tree.FrameNode;
 import org.objectweb.asm.tree.IincInsnNode;
 import org.objectweb.asm.tree.InsnList;
 import org.objectweb.asm.tree.IntInsnNode;
+import org.objectweb.asm.tree.InvokeDynamicInsnNode;
 import org.objectweb.asm.tree.JumpInsnNode;
 import org.objectweb.asm.tree.LabelNode;
 import org.objectweb.asm.tree.LdcInsnNode;
@@ -43,6 +44,7 @@ import org.objectweb.asm.tree.LineNumberNode;
 import org.objectweb.asm.tree.LookupSwitchInsnNode;
 import org.objectweb.asm.tree.MethodInsnNode;
 import org.objectweb.asm.tree.MethodNode;
+import org.objectweb.asm.tree.MultiANewArrayInsnNode;
 import org.objectweb.asm.tree.TableSwitchInsnNode;
 import org.objectweb.asm.tree.TryCatchBlockNode;
 import org.objectweb.asm.tree.TypeInsnNode;
@@ -102,7 +104,7 @@ public final class AsmClassParser {
     private ClassModel toModel(ClassNode cn) {
         List<FieldModel> fields = new ArrayList<>();
         for (FieldNode fn : cn.fields) {
-            fields.add(new FieldModel(fn.access, fn.name, fn.desc, fn.signature));
+            fields.add(new FieldModel(fn.access, fn.name, fn.desc, fn.signature, fn.value));
         }
 
         List<MethodModel> methods = new ArrayList<>();
@@ -204,9 +206,15 @@ public final class AsmClassParser {
             operand = String.valueOf(in.operand);
         } else if (n instanceof LdcInsnNode ldc) {
             // 字符串常量显式加引号，避免与标识符混淆（IDEA 风格观感）。
-            operand = ldc.cst instanceof String s ? "\"" + s + "\"" : String.valueOf(ldc.cst);
+            operand = ldc.cst instanceof String s ? "\"" + s + "\"" : ldcLiteral(ldc.cst);
         } else if (n instanceof TypeInsnNode t) {
             operand = t.desc;
+        } else if (n instanceof InvokeDynamicInsnNode idy) {
+            // invokedynamic：记录名字与描述符，供上层重建（如字符串拼接）。
+            operand = idy.name + idy.desc;
+        } else if (n instanceof MultiANewArrayInsnNode ma) {
+            // 多维数组：记录维度数与类型描述符，形如 «dims|desc»。
+            operand = ma.dims + "|" + ma.desc;
         } else if (n instanceof MethodInsnNode m) {
             operand = m.owner + "." + m.name + m.desc;
         } else if (n instanceof FieldInsnNode f) {
@@ -221,6 +229,23 @@ public final class AsmClassParser {
             return fallback;
         }
         return labelIndex.getOrDefault(label, fallback);
+    }
+
+    /** 把 {@code ldc} 常量格式化为 Java 字面量：长整/浮点/字符常量补足类型后缀。 */
+    private static String ldcLiteral(Object cst) {
+        if (cst instanceof Long l) {
+            return l + "L";
+        }
+        if (cst instanceof Float f) {
+            return f + "f";
+        }
+        if (cst instanceof Double d) {
+            return d + "d";
+        }
+        if (cst instanceof Character c) {
+            return "'" + c + "'";
+        }
+        return String.valueOf(cst);
     }
 
     /**

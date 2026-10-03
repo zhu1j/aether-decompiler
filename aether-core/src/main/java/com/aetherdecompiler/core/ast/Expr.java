@@ -539,7 +539,7 @@ public abstract class Expr extends AstNode {
 
         @Override
         public String render() {
-            return "slot" + slot + " += " + amount;
+            return "v" + slot + " += " + amount;
         }
     }
 
@@ -642,6 +642,91 @@ public abstract class Expr extends AstNode {
     }
 
     /**
+     * 数组字面量初始化：{@code new int[]{1,2,3}} 编译后的 {@code newarray;dup;idx;val;astore...}
+     * 序列被折叠为可读的数组初始化式。
+     */
+    public static final class ArrayInit extends Expr {
+        private final String type;
+        private final List<Expr> elements;
+
+        public ArrayInit(int insn, String type, List<Expr> elements) {
+            super(insn, insn);
+            this.type = type;
+            this.elements = elements;
+        }
+
+        public String type() {
+            return type;
+        }
+
+        public List<Expr> elements() {
+            return elements;
+        }
+
+        @Override
+        public List<AstNode> children() {
+            return new ArrayList<>(elements);
+        }
+
+        @Override
+        public String render() {
+            String t = type == null || type.isEmpty() ? "Object" : type.replace('/', '.');
+            StringBuilder sb = new StringBuilder("new ").append(t).append("[]{");
+            for (int i = 0; i < elements.size(); i++) {
+                if (i > 0) {
+                    sb.append(", ");
+                }
+                sb.append(elements.get(i).render());
+            }
+            return sb.append('}').toString();
+        }
+
+        @Override
+        public String label() {
+            return "ArrayInit";
+        }
+    }
+
+    /** 多维数组创建：{@code multianewarray} → {@code new T[s0][s1]...}。 */
+    public static final class NewMultiArray extends Expr {
+        private final String type;
+        private final List<Expr> sizes;
+
+        public NewMultiArray(int insn, String type, List<Expr> sizes) {
+            super(insn, insn);
+            this.type = type;
+            this.sizes = sizes;
+        }
+
+        public String type() {
+            return type;
+        }
+
+        public List<Expr> sizes() {
+            return sizes;
+        }
+
+        @Override
+        public List<AstNode> children() {
+            return new ArrayList<>(sizes);
+        }
+
+        @Override
+        public String render() {
+            StringBuilder sb = new StringBuilder("new ").append(type == null ? "Object" : type);
+            for (Expr s : sizes) {
+                sb.append('[').append(s == null ? "" : s.render()).append(']');
+            }
+            return sb.toString();
+        }
+
+        @Override
+        public String label() {
+            return "NewMultiArray";
+        }
+    }
+
+    /**
      * 兜底表达式：当某条指令无法被精确重建时，保底记录它的助记符与操作数，
      * 使 AST 始终完整、永不丢指令（便于源码映射与教学观察）。
      */
@@ -659,7 +744,8 @@ public abstract class Expr extends AstNode {
 
         @Override
         public String render() {
-            return text;
+            // 未精确重建的指令不以裸 '?' 污染源码，而以注释占位，保持可编译与可追溯。
+            return "/* unresolved: " + text + " */";
         }
     }
 }

@@ -20,8 +20,15 @@ package com.aetherdecompiler.core.ast;
 
 import com.aetherdecompiler.api.SourceTree;
 import com.aetherdecompiler.core.mapping.DefaultSourceMapping;
+import com.aetherdecompiler.core.model.AccessFlags;
+import com.aetherdecompiler.core.model.ClassModel;
+import com.aetherdecompiler.core.model.FieldModel;
+import com.aetherdecompiler.core.model.MethodModel;
 
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
 /**
  * 把语言中立的 {@link MethodBody} 渲染成 Java 风格的源码文本，并同步产出源码映射。
@@ -32,8 +39,9 @@ import java.util.List;
  * 的双向索引在渲染过程中被自然建立。</p>
  *
  * <p>本类刻意保守：无法识别的结构退化为可读的近似，而不是抛异常。它追求的是“一定
- * 能写出点东西、且映射不丢”，而非“一定要编译通过”。真正可编译的输出由更重的后端
- * （如 CFR）负责；本渲染器的价值在于把内核自己的 AST 直观地展示出来，用于教学与调试。</p>
+ * 能写出点东西、且映射不丢”。同时它承担<strong>意译</strong>职责：把字节码层的描述符、
+ * {@code <init>}/{@code <clinit>} 等 IR 记号翻译成合法的 Java 语法记号（构造方法、
+ * 静态初始化块、参数列表、类型名），从而使自研渲染器的输出可被 {@code javac} 编译。</p>
  *
  * <p>故事类比：一位把结构草图誊清成正式图纸的描图员 —— 草图用什么符号都行，他负责
  * 用规范字母把每个线条标注清楚，并附上一张“图号 ↔ 原图”的对照表。</p>
@@ -49,8 +57,19 @@ public final class JavaAstRenderer {
     private int col;
     private String className = "Unknown";
 
+    /** 当前方法内“槽位 → 推断出的 Java 类型”，用于补出局部变量声明。 */
+    private final Map<Integer, String> localTypes = new LinkedHashMap<>();
+    /** 形参槽位 → 其声明类型（供类型推断解析参数引用）。 */
+    private final Map<Integer, String> paramTypes = new LinkedHashMap<>();
+    /** 当前方法形参所占的槽位集合（这些槽位不重复声明）。 */
+    private final Set<Integer> paramSlots = new java.util.HashSet<>();
+    /** 当前方法声明的返回类型（用于未解析返回值的降级与末尾兜底 return）。 */
+    private String currentReturnType = "void";
+    /** 当前渲染的类是否为接口（决定带体方法是否需加 {@code default}）。 */
+    private boolean currentIsInterface = false;
+
     /**
-     * 渲染一个方法体。
+     * 渲染一个方法体（单方法视图）。
      *
      * @param body 方法体 AST
      * @return 渲染单元（路径为 {@code <Owner>.java}，含源码映射）
@@ -69,21 +88,537 @@ public final class JavaAstRenderer {
 
         emit("class ").emit(simple).emit(" {\n");
         indent++;
-        emit("    ").emit(methodSignature(body)).emit(" {\n");
-        indent++;
-        statement(body.body());
-        indent--;
-        emit("    ").emit("}\n");
+        emitMethod(body);
         indent--;
         emit("}\n");
         return SourceTree.of(simple + ".java", out.toString(), mapping.build());
     }
 
+    /**
+     * 渲染整个类的骨架：类声明 + 字段声明 + 全部方法体。这是自研渲染器走向
+     * “可编译输出”的入口——把散落的方法体与字段重新装配成一个完整类型。
+     *
+     * @param cls     类模型（提供类名、父类、字段）
+     * @param bodies  该类每个具体方法的方法体 AST（顺序即输出顺序）
+     * @return 渲染单元（路径为 {@code <SimpleName>.java}，含源码映射）
+     */
+    public SourceTree render(ClassModel cls, List<MethodBody> bodies) {
+        if (cls == null) {
+            return SourceTree.of("Unknown.java", "// <no class>\n", null);
+        }
+        String simple = simpleName(cls.name());
+        this.className = simple;
+        this.currentIsInterface = cls.isInterface();
+        out.setLength(0);
+        line = 1;
+        col = 0;
+        indent = 0;
+
+        StringBuilder head = new StringBuilder();
+        if (cls.isInterface()) {
+            head.append("interface ").append(simple);
+        } else {
+            head.append("class ").append(simple);
+            String superName = cls.superName();
+            if (superName != null && !superName.isEmpty()
+                    && !"java/lang/Object".equals(superName)) {
+                head.append(" extends ").append(simpleName(superName));
+            }
+        }
+        if (!cls.interfaces().isEmpty()) {
+            head.append(cls.isInterface() ? " extends " : " implements ");
+            for (int i = 0; i < cls.interfaces().size(); i++) {
+                if (i > 0) {
+                    head.append(", ");
+                }
+                head.append(simpleName(cls.interfaces().get(i)));
+            }
+        }
+        head.append(" {\n");
+        emit(head.toString());
+        indent++;
+
+        for (FieldModel f : cls.fields()) {
+            emitLine(null, fieldDecl(f));
+        }
+        if (!cls.fields().isEmpty() && bodies != null && !bodies.isEmpty()) {
+            emit("\n");
+        }
+
+        if (bodies != null) {
+            for (int i = 0; i < bodies.size(); i++) {
+                emitMethod(bodies.get(i));
+                if (i < bodies.size() - 1) {
+                    emit("\n");
+                }
+            }
+        }
+
+        // 抽象/原生方法无方法体：仅声明签名（接口/抽象类的必要成员）。
+        for (MethodModel m : cls.methods()) {
+            if (m.isAbstractOrNative()) {
+                emitLine(null, methodSignature(cls.name(), m.name(), m.descriptor(), m.access()) + ";");
+            }
+        }
+
+        indent--;
+        emit("}\n");
+        return SourceTree.of(simple + ".java", out.toString(), mapping.build());
+    }
+
+    /** 渲染单个方法（含 {@code <init>}/{@code <clinit>} 的意译）。 */
+    private void emitMethod(MethodBody body) {
+        String name = body.methodName();
+        if ("<clinit>".equals(name)) {
+            // 类静态初始化器不是普通方法：渲染为 static { ... } 块。
+            currentReturnType = "void";
+            emit("    ").emit("static {\n");
+            indent++;
+            prepareLocals(body);
+            emitDeclarations();
+            emitBodyDroppingTrailingReturn(body.body());
+            indent--;
+            emit("    ").emit("}\n");
+            return;
+        }
+        emit("    ").emit(defaultPrefix(body)).emit(methodSignature(body)).emit(" {\n");
+        indent++;
+        boolean ctor = "<init>".equals(name);
+        currentReturnType = ctor ? "void" : returnType(body.descriptor() == null ? "()V" : body.descriptor());
+        prepareLocals(body);
+        emitDeclarations();
+        Stmt s = body.body();
+        if (ctor) {
+            // 构造方法：丢弃末尾冗余的裸 return;（构造器无返回值）。
+            emitBodyDroppingTrailingReturn(s);
+        } else {
+            statement(s);
+        }
+        // 非 void 方法：若结构化后的最后一条语句不是 return/throw，补一个默认返回以免“缺失返回”。
+        if (!"void".equals(currentReturnType) && !endsWithReturnOrThrow(s)) {
+            emitLine(null, "return " + defaultLiteral(currentReturnType) + "; // default (fallthrough)");
+        }
+        indent--;
+        emit("    ").emit("}\n");
+    }
+
+    /** 接口中的带体方法需加 {@code default} 修饰符；其余情况返回空串。 */
+    private String defaultPrefix(MethodBody body) {
+        if (currentIsInterface && !"<init>".equals(body.methodName())) {
+            return "default ";
+        }
+        return "";
+    }
+
+    /** 判断语句（递归）是否以 return 或 throw 结束。 */
+    private static boolean endsWithReturnOrThrow(Stmt s) {
+        if (s == null) {
+            return false;
+        }
+        if (s instanceof Stmt.Return || s instanceof Stmt.Throw) {
+            return true;
+        }
+        if (s instanceof Stmt.Block b) {
+            return !b.statements().isEmpty()
+                    && endsWithReturnOrThrow(b.statements().get(b.statements().size() - 1));
+        }
+        if (s instanceof Stmt.If i) {
+            return i.elseBranch() != null
+                    && endsWithReturnOrThrow(i.thenBranch())
+                    && endsWithReturnOrThrow(i.elseBranch());
+        }
+        return false;
+    }
+
+    /** 按类型给出默认字面量，用于未解析返回值的降级与末尾兜底。 */
+    private static String defaultLiteral(String type) {
+        return switch (type) {
+            case "boolean" -> "false";
+            case "long" -> "0L";
+            case "float" -> "0.0f";
+            case "double" -> "0.0d";
+            case "void" -> "";
+            default -> type.endsWith("[]") || Character.isUpperCase(type.charAt(0))
+                    ? "null" : "0";
+        };
+    }
+
+    /** 逐条输出语句，但丢弃末尾的裸 {@code return;}——Java 中 void 块/构造器无需它。 */
+    private void emitBodyDroppingTrailingReturn(Stmt s) {
+        if (s instanceof Stmt.Block b) {
+            List<Stmt> stmts = b.statements();
+            for (int i = 0; i < stmts.size(); i++) {
+                Stmt cur = stmts.get(i);
+                boolean lastBareReturn = cur instanceof Stmt.Return r && r.value() == null;
+                if (lastBareReturn && i == stmts.size() - 1) {
+                    continue;
+                }
+                statement(cur);
+            }
+        } else {
+            statement(s);
+        }
+    }
+
+    // ---- 局部变量声明（P1：类型推断 + 补声明）----
+
+    /** 逐语句收集“被赋值的局部槽位”及其推断类型，并登记形参槽位。 */
+    private void prepareLocals(MethodBody body) {
+        localTypes.clear();
+        paramSlots.clear();
+        paramTypes.clear();
+        boolean isStatic = AccessFlags.isStatic(body.access());
+        String desc = body.descriptor() == null ? "()V" : body.descriptor();
+        int slot = isStatic ? 0 : 1;
+        int i = 1;
+        while (i < desc.length() && desc.charAt(i) != ')') {
+            TypeRef t = readType(desc, i);
+            i = t.next;
+            paramSlots.add(slot);
+            paramTypes.put(slot, t.java);
+            slot += t.slots;
+        }
+        collectLocals(body.body());
+    }
+
+    /** 输出局部变量声明：非形参、且已被赋值的槽位，统一在方法体开头以推断类型声明。 */
+    private void emitDeclarations() {
+        boolean any = false;
+        for (Map.Entry<Integer, String> en : localTypes.entrySet()) {
+            int slot = en.getKey();
+            if (paramSlots.contains(slot)) {
+                continue;
+            }
+            emitLine(null, en.getValue() + " v" + slot + ";");
+            any = true;
+        }
+        if (any) {
+            emit("\n");
+        }
+    }
+
+    private void collectLocals(Stmt s) {
+        if (s == null) {
+            return;
+        }
+        if (s instanceof Stmt.Block b) {
+            for (Stmt inner : b.statements()) {
+                collectLocals(inner);
+            }
+        } else if (s instanceof Stmt.ExprStmt e) {
+            scanExpr(e.expr());
+        } else if (s instanceof Stmt.Return r) {
+            scanExpr(r.value());
+        } else if (s instanceof Stmt.Throw t) {
+            scanExpr(t.value());
+        } else if (s instanceof Stmt.If i) {
+            scanExpr(i.cond());
+            collectLocals(i.thenBranch());
+            collectLocals(i.elseBranch());
+        } else if (s instanceof Stmt.While w) {
+            scanExpr(w.cond());
+            collectLocals(w.body());
+        } else if (s instanceof Stmt.DoWhile d) {
+            collectLocals(d.body());
+            scanExpr(d.cond());
+        } else if (s instanceof Stmt.Switch sw) {
+            scanExpr(sw.selector());
+            for (Stmt.SwitchCase c : sw.cases()) {
+                collectLocals(c.body());
+            }
+            collectLocals(sw.defaultBody());
+        } else if (s instanceof Stmt.TryCatch tc) {
+            collectLocals(tc.body());
+            for (Stmt.CatchClause c : tc.catches()) {
+                collectLocals(c.body());
+            }
+        }
+    }
+
+    private void scanExpr(Expr e) {
+        if (e == null) {
+            return;
+        }
+        if (e instanceof Expr.Assign a && a.target() instanceof Expr.Local l) {
+            localTypes.putIfAbsent(l.slot(), inferType(a.value()));
+        } else if (e instanceof Expr.Incr inc) {
+            localTypes.putIfAbsent(inc.slot(), "int");
+        }
+        for (AstNode child : e.children()) {
+            if (child instanceof Expr ce) {
+                scanExpr(ce);
+            }
+        }
+    }
+
+    /** 轻量类型推断：据表达式形状推断其 Java 类型，用于补出局部变量声明。 */
+    private String inferType(Expr e) {
+        if (e == null) {
+            return "Object";
+        }
+        if (e instanceof Expr.Const c) {
+            return literalType(c.value());
+        }
+        if (e instanceof Expr.New n) {
+            return simpleName(n.type());
+        }
+        if (e instanceof Expr.NewArray a) {
+            return a.type() + "[]";
+        }
+        if (e instanceof Expr.NewMultiArray a) {
+            return a.type() + "[]".repeat(a.sizes().size());
+        }
+        if (e instanceof Expr.ArrayLength) {
+            return "int";
+        }
+        if (e instanceof Expr.Cast c) {
+            return c.type() == null ? "Object" : c.type().replace('/', '.');
+        }
+        if (e instanceof Expr.Call c) {
+            return returnType(c.descriptor() == null ? "()V" : c.descriptor());
+        }
+        if (e instanceof Expr.Binary b) {
+            String op = b.op();
+            if (op.equals("==") || op.equals("!=") || op.equals("<") || op.equals(">")
+                    || op.equals("<=") || op.equals(">=") || op.equals("&&") || op.equals("||")) {
+                return "boolean";
+            }
+            String lt = inferType(b.left());
+            String rt = inferType(b.right());
+            if (op.equals("+") && ("String".equals(lt) || "String".equals(rt))) {
+                return "String";
+            }
+            return promote(lt, rt);
+        }
+        if (e instanceof Expr.Unary u) {
+            String op = u.op();
+            if (op.startsWith("(")) {
+                return op.replace("(", "").replace(")", "").replace('/', '.');
+            }
+            return inferType(u.operand());
+        }
+        if (e instanceof Expr.Local l) {
+            String pt = paramTypes.get(l.slot());
+            if (pt != null) {
+                return pt;
+            }
+            return localTypes.getOrDefault(l.slot(), "int");
+        }
+        if (e instanceof Expr.ArrayLoad al) {
+            String at = inferType(al.array());
+            return at.endsWith("[]") ? at.substring(0, at.length() - 2) : "int";
+        }
+        if (e instanceof Expr.InstanceOf || e instanceof Expr.Cond) {
+            return "boolean";
+        }
+        if (e instanceof Expr.Incr) {
+            return "int";
+        }
+        return "Object";
+    }
+
+    private static String literalType(String v) {
+        if (v == null || v.equals("null")) {
+            return "Object";
+        }
+        if (v.startsWith("\"")) {
+            return "String";
+        }
+        char last = v.charAt(v.length() - 1);
+        if (last == 'L' || last == 'l') {
+            return "long";
+        }
+        if (last == 'f' || last == 'F') {
+            return "float";
+        }
+        if (last == 'd' || last == 'D') {
+            return "double";
+        }
+        return "int";
+    }
+
+    private static String promote(String a, String b) {
+        if ("double".equals(a) || "double".equals(b)) {
+            return "double";
+        }
+        if ("float".equals(a) || "float".equals(b)) {
+            return "float";
+        }
+        if ("long".equals(a) || "long".equals(b)) {
+            return "long";
+        }
+        return "int";
+    }
+
     private String methodSignature(MethodBody body) {
+        return methodSignature(body.ownerClass(), body.methodName(), body.descriptor(), body.access());
+    }
+
+    /** 由 owner/name/descriptor/access 直接生成方法签名（用于抽象/原生方法的声明）。 */
+    private String methodSignature(String owner, String name, String descriptor, int access) {
+        String desc = descriptor == null ? "()V" : descriptor;
+        String simple = simpleName(owner);
+        boolean isStatic = AccessFlags.isStatic(access);
+        if ("<init>".equals(name)) {
+            return "public " + simple + "(" + paramList(desc, false) + ")";
+        }
+        String mod = isStatic ? "public static " : "public ";
+        return mod + returnType(desc) + " " + name + "(" + paramList(desc, isStatic) + ")";
+    }
+
+    /** 字段声明：访问标志 + 类型 + 名字（+ 常量初始化式）。 */
+    private String fieldDecl(FieldModel f) {
         StringBuilder sb = new StringBuilder();
-        sb.append(com.aetherdecompiler.core.model.AccessFlags.isStatic(body.access())
-                ? "static " : "public ");
-        sb.append(body.methodName()).append('(').append(body.descriptor()).append(')');
+        sb.append(accessText(f.access())).append(typeName(f.descriptor())).append(' ').append(f.name());
+        Object cv = f.constantValue();
+        if (cv != null) {
+            sb.append(" = ").append(constantLiteral(cv));
+        }
+        sb.append(';');
+        return sb.toString();
+    }
+
+    /** 把 ConstantValue 属性值格式化为 Java 字面量。 */
+    private static String constantLiteral(Object v) {
+        if (v instanceof String s) {
+            return "\"" + s.replace("\\", "\\\\").replace("\"", "\\\"") + "\"";
+        }
+        if (v instanceof Long l) {
+            return l + "L";
+        }
+        if (v instanceof Float f) {
+            return f + "f";
+        }
+        if (v instanceof Double d) {
+            return d + "d";
+        }
+        if (v instanceof Character c) {
+            return "'" + c + "'";
+        }
+        if (v instanceof Boolean b) {
+            return b.toString();
+        }
+        return String.valueOf(v);
+    }
+
+    // ---- 描述符 → Java 类型（意译核心）----
+
+    /** 解析方法描述符的参数部分为 Java 形参列表，形参名按槽位递增（v1、v2……）。 */
+    private static String paramList(String desc, boolean isStatic) {
+        StringBuilder sb = new StringBuilder();
+        int slot = isStatic ? 0 : 1;
+        int i = 1;
+        boolean first = true;
+        while (i < desc.length() && desc.charAt(i) != ')') {
+            TypeRef t = readType(desc, i);
+            i = t.next;
+            if (!first) {
+                sb.append(", ");
+            }
+            sb.append(t.java).append(" v").append(slot);
+            first = false;
+            slot += t.slots;
+        }
+        return sb.toString();
+    }
+
+    /** 解析方法描述符的返回类型为 Java 类型名。 */
+    private static String returnType(String desc) {
+        int p = desc.indexOf(')');
+        if (p < 0 || p + 1 >= desc.length()) {
+            return "void";
+        }
+        return typeName(desc.substring(p + 1));
+    }
+
+    /** 把单个类型描述符（字段/返回值/参数）翻译为 Java 类型名。 */
+    private static String typeName(String desc) {
+        if (desc == null || desc.isEmpty()) {
+            return "Object";
+        }
+        TypeRef t = readType(desc, 0);
+        return t.java;
+    }
+
+    private static final class TypeRef {
+        String java;
+        int next;
+        int slots;
+    }
+
+    /** 读取 {@code desc} 自 {@code i} 起的一个类型描述符，返回 Java 名、结束位置与槽位数。 */
+    private static TypeRef readType(String desc, int i) {
+        int dims = 0;
+        while (i < desc.length() && desc.charAt(i) == '[') {
+            dims++;
+            i++;
+        }
+        if (i >= desc.length()) {
+            TypeRef r = new TypeRef();
+            r.java = "Object";
+            r.next = i;
+            r.slots = 1;
+            return r;
+        }
+        char c = desc.charAt(i);
+        String base;
+        int slots = 1;
+        if (c == 'L') {
+            int semi = desc.indexOf(';', i);
+            if (semi < 0) {
+                semi = desc.length();
+            }
+            base = simpleName(desc.substring(i + 1, semi));
+            i = semi + 1;
+        } else {
+            base = primitiveName(c);
+            if (c == 'J' || c == 'D') {
+                slots = 2;
+            }
+            i++;
+        }
+        StringBuilder sb = new StringBuilder(base);
+        for (int d = 0; d < dims; d++) {
+            sb.append("[]");
+        }
+        TypeRef r = new TypeRef();
+        r.java = sb.toString();
+        r.next = i;
+        r.slots = slots;
+        return r;
+    }
+
+    private static String primitiveName(char c) {
+        return switch (c) {
+            case 'V' -> "void";
+            case 'Z' -> "boolean";
+            case 'B' -> "byte";
+            case 'C' -> "char";
+            case 'S' -> "short";
+            case 'I' -> "int";
+            case 'J' -> "long";
+            case 'F' -> "float";
+            case 'D' -> "double";
+            default -> "Object";
+        };
+    }
+
+    /** 访问标志 → Java 修饰符文本（顺序：可见性 → static → final）。 */
+    private static String accessText(int flags) {
+        StringBuilder sb = new StringBuilder();
+        if (AccessFlags.isPublic(flags)) {
+            sb.append("public ");
+        } else if ((flags & AccessFlags.PRIVATE) != 0) {
+            sb.append("private ");
+        } else if ((flags & AccessFlags.PROTECTED) != 0) {
+            sb.append("protected ");
+        }
+        if (AccessFlags.isStatic(flags)) {
+            sb.append("static ");
+        }
+        if (AccessFlags.isFinal(flags)) {
+            sb.append("final ");
+        }
         return sb.toString();
     }
 
@@ -102,7 +637,14 @@ public final class JavaAstRenderer {
         } else if (s instanceof Stmt.ExprStmt e) {
             emitLine(s, expr(e.expr()) + ";");
         } else if (s instanceof Stmt.Return r) {
-            emitLine(s, r.value() == null ? "return;" : ("return " + expr(r.value()) + ";"));
+            if (r.value() == null) {
+                emitLine(s, "return;");
+            } else if (r.value() instanceof Expr.Opaque) {
+                // 返回值未能重建：按声明类型给出合法默认值并注明，保持可编译。
+                emitLine(s, "return " + defaultLiteral(currentReturnType) + "; // unresolved");
+            } else {
+                emitLine(s, "return " + expr(r.value()) + ";");
+            }
         } else if (s instanceof Stmt.Throw t) {
             emitLine(s, "throw " + expr(t.value()) + ";");
         } else if (s instanceof Stmt.If i) {
@@ -149,7 +691,8 @@ public final class JavaAstRenderer {
         } else if (s instanceof Stmt.Label l) {
             emitLine(l, l.name() + ":");
         } else if (s instanceof Stmt.Goto g) {
-            emitLine(g, "goto " + g.target() + "; // irreducible");
+            // goto 不是合法 Java：以注释占位，保留可追溯性而不破坏语法。
+            emitLine(g, "// goto " + g.target() + " (irreducible)");
         } else if (s instanceof Stmt.Nop) {
             emitLine(s, "// nop");
         } else if (s instanceof Stmt.TryCatch tc) {

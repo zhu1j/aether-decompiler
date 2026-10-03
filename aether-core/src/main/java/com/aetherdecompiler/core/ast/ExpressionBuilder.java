@@ -103,8 +103,20 @@ public final class ExpressionBuilder {
         statements.clear();
         terminatorCond = null;
         terminatorKind = "none";
-        for (int i = from; i <= to && i < insns.size(); i++) {
-            step(insns.get(i));
+        for (int i = from; i <= to && i < insns.size(); ) {
+            Insn in = insns.get(i);
+            int op = in.opcode();
+            if (op == 188 || op == 189) {
+                int[] next = new int[]{i};
+                Expr folded = tryFoldArrayInit(insns, i, to, next);
+                if (folded != null) {
+                    push(folded);
+                    i = next[0];
+                    continue;
+                }
+            }
+            step(in);
+            i++;
         }
         return new Result(List.copyOf(statements), terminatorCond, terminatorKind);
     }
@@ -154,7 +166,7 @@ public final class ExpressionBuilder {
                 statements.add(new Stmt.ExprStmt(insn.index(), new Expr.ArrayStore(insn.index(), arr, idx, val)));
             }
             case 87, 88 -> popSafe(insn.index());
-            case 89, 90, 91 -> { /* dup*：近似为无操作 */ }
+            case 89, 90, 91 -> { /* dup*：new/数组初始化模式由各自分支处理，这里保持近似无操作 */ }
             case 92, 93, 94 -> { /* dup2*：近似为无操作 */ }
             case 95 -> { /* swap：近似为无操作 */ }
             case 96 -> binary(insn, "+");
@@ -195,8 +207,11 @@ public final class ExpressionBuilder {
                 int amount = parseIncAmount(insn.operand());
                 statements.add(new Stmt.ExprStmt(insn.index(), new Expr.Incr(insn.index(), slot, amount)));
             }
-            case 133, 134, 135, 136, 137, 138, 139, 140, 141, 142, 143, 144, 145, 146, 147 ->
-                    push(new Expr.Unary(insn.index(), "(" + insn.mnemonic() + ")", popSafe(insn.index())));
+            case 133, 134, 135, 136, 137, 138, 139, 140, 141, 142, 143, 144, 145, 146, 147 -> {
+                // 数值转换：意译为 Java 强制类型转换 (T)x，而不是内部记号 (i2l)x。
+                Expr operand = popSafe(insn.index());
+                push(new Expr.Cast(insn.index(), conversionTypeFixed(op), operand));
+            }
             case 148, 149, 150, 151, 152 -> binary(insn, "cmp");
             case 153, 154, 155, 156, 157, 158, 159, 160, 161, 162, 163, 164, 165, 166, 198, 199 ->
                     buildCond(insn);
@@ -215,9 +230,15 @@ public final class ExpressionBuilder {
             case 178, 180, 179, 181 -> buildField(insn);
             case 182, 183, 184, 185, 186 -> buildCall(insn);
             case 187 -> push(new Expr.New(insn.index(), insn.operand(), List.of()));
-            case 188, 189 -> {
+            case 188 -> {
+                // newarray：操作数是 atype（基本类型数组）编号，需映射为 Java 类型名。
                 Expr size = popSafe(insn.index());
-                push(new Expr.NewArray(insn.index(), insn.operand(), size));
+                push(new Expr.NewArray(insn.index(), atypeName(insn.operand()), size));
+            }
+            case 189 -> {
+                // anewarray：操作数是元素类型的内部名（引用类型数组）。
+                Expr size = popSafe(insn.index());
+                push(new Expr.NewArray(insn.index(), insn.operand().replace('/', '.'), size));
             }
             case 190 -> push(new Expr.ArrayLength(insn.index(), popSafe(insn.index())));
             case 191 -> {
@@ -227,7 +248,7 @@ public final class ExpressionBuilder {
             case 192 -> push(new Expr.Cast(insn.index(), insn.operand(), popSafe(insn.index())));
             case 193 -> push(new Expr.InstanceOf(insn.index(), popSafe(insn.index()), insn.operand()));
             case 194, 195 -> popSafe(insn.index());
-            case 197 -> push(new Expr.Opaque(insn.index(), "multianewarray " + insn.operand()));
+            case 197 -> buildMultiArray(insn);
             default -> push(new Expr.Opaque(insn.index(), insn.mnemonic()
                     + (insn.operand().isEmpty() ? "" : " " + insn.operand())));
         }
@@ -243,9 +264,12 @@ public final class ExpressionBuilder {
         int op = insn.opcode();
         String symbol = condSymbol(op);
         if (op >= 153 && op <= 158) {
-            // if<cond> 与零比较。
+            // if<cond> 与零比较；若被比较值本身是布尔表达式，则与 false 比较以保持语义并合法。
             Expr left = popSafe(insn.index());
-            terminatorCond = new Expr.Cond(insn.index(), symbol, left, new Expr.Const(insn.index(), "0"), false);
+            Expr right = isBooleanValued(left)
+                    ? new Expr.Const(insn.index(), "false")
+                    : new Expr.Const(insn.index(), "0");
+            terminatorCond = new Expr.Cond(insn.index(), symbol, left, right, false);
         } else if (op >= 159 && op <= 164) {
             // if_icmp<cond>。
             Expr right = popSafe(insn.index());
@@ -284,6 +308,10 @@ public final class ExpressionBuilder {
 
     private void buildCall(Insn insn) {
         int op = insn.opcode();
+        if (op == 186) {
+            buildInvokeDynamic(insn);
+            return;
+        }
         String operand = insn.operand();
         int p = operand.indexOf('(');
         String owner = "";
@@ -325,6 +353,112 @@ public final class ExpressionBuilder {
         } else {
             push(call);
         }
+    }
+
+    /** 数值转换操作码 → Java 目标类型名。 */
+    private static String conversionType(int op) {
+        return switch (op) {
+            case 133, 140 -> "long";    // i2l / f2l
+            case 134, 144 -> "float";   // i2f / d2f
+            case 135, 138 -> "double";  // i2d / l2d
+            case 136, 139, 142 -> "int"; // l2i / f2i / d2i
+            case 137 -> "float";        // l2f
+            case 141, 143 -> "double";  // f2d / d2l? (143=d2l)
+            case 145 -> "byte";         // i2b
+            case 146 -> "char";         // i2c
+            case 147 -> "short";        // i2s
+            default -> "int";
+        };
+    }
+
+    /** 143 是 d2l，应映射为 long；上表统一修正。 */
+    private static String conversionTypeFixed(int op) {
+        return op == 143 ? "long" : conversionType(op);
+    }
+
+    /** 判断表达式是否为布尔值（用于 ifeq/ifne 的语义提升）。 */
+    private static boolean isBooleanValued(Expr e) {
+        if (e instanceof Expr.InstanceOf || e instanceof Expr.Cond) {
+            return true;
+        }
+        if (e instanceof Expr.Binary b) {
+            String o = b.op();
+            return o.equals("==") || o.equals("!=") || o.equals("<") || o.equals(">")
+                    || o.equals("<=") || o.equals(">=") || o.equals("&&") || o.equals("||");
+        }
+        return false;
+    }
+
+    /** 重建 {@code multianewarray}：操作数形如 {@code dims|desc}。 */
+    private void buildMultiArray(Insn insn) {
+        String operand = insn.operand();
+        int bar = operand.indexOf('|');
+        if (bar < 0) {
+            push(new Expr.Opaque(insn.index(), "multianewarray " + operand));
+            return;
+        }
+        int dims;
+        try {
+            dims = Integer.parseInt(operand.substring(0, bar).trim());
+        } catch (NumberFormatException ex) {
+            dims = 1;
+        }
+        String desc = operand.substring(bar + 1);
+        List<Expr> sizes = new ArrayList<>();
+        for (int i = 0; i < dims; i++) {
+            sizes.add(0, popSafe(insn.index()));
+        }
+        push(new Expr.NewMultiArray(insn.index(), elemType(desc), sizes));
+    }
+
+    /** 从数组描述符取出元素基类型名，如 {@code [[I → int}、{@code [[Ljava/lang/String; → String}。 */
+    private static String elemType(String desc) {
+        int i = 0;
+        while (i < desc.length() && desc.charAt(i) == '[') {
+            i++;
+        }
+        String rest = desc.substring(i);
+        if (rest.startsWith("L")) {
+            String inner = rest.substring(1);
+            int semi = inner.indexOf(';');
+            if (semi >= 0) {
+                inner = inner.substring(0, semi);
+            }
+            int slash = inner.lastIndexOf('/');
+            return slash >= 0 ? inner.substring(slash + 1) : inner;
+        }
+        return switch (rest) {
+            case "Z" -> "boolean";
+            case "B" -> "byte";
+            case "C" -> "char";
+            case "S" -> "short";
+            case "I" -> "int";
+            case "J" -> "long";
+            case "F" -> "float";
+            case "D" -> "double";
+            default -> "Object";
+        };
+    }
+
+    /** 重建 {@code invokedynamic}：字符串拼接降级为 {@code "" + a + b}，保持类型合法。 */
+    private void buildInvokeDynamic(Insn insn) {
+        String operand = insn.operand();
+        int p = operand.indexOf('(');
+        String desc = p >= 0 ? operand.substring(p) : ")V";
+        if (!desc.endsWith(")Ljava/lang/String;")) {
+            push(new Expr.Opaque(insn.index(), "invokedynamic " + operand));
+            return;
+        }
+        int argc = argCount(desc);
+        List<Expr> args = new ArrayList<>();
+        for (int i = 0; i < argc; i++) {
+            args.add(0, popSafe(insn.index()));
+        }
+        Expr e = new Expr.Const(insn.index(), "\"\"");
+        for (Expr a : args) {
+            e = new Expr.Binary(insn.index(), "+", e, a);
+        }
+        push(e);
     }
 
     private Expr local(int insn, int slot) {
@@ -419,6 +553,129 @@ public final class ExpressionBuilder {
             any = true;
         }
         return any ? n : -1;
+    }
+
+    /**
+     * 尝试把 {@code newarray/anewarray} 之后的 {@code dup;idx;val;astore} 重复序列
+     * 折叠为数组字面量初始化式。成功返回表达式并回写下一个待处理下标；否则返回 {@code null}。
+     *
+     * @param insns 指令列表
+     * @param start 数组创建指令的下标
+     * @param to    块末下标（含）
+     * @param next  出参：下一个待处理下标（长度 1 的数组）
+     */
+    private Expr tryFoldArrayInit(List<Insn> insns, int start, int to, int[] next) {
+        Insn newInsn = insns.get(start);
+        String type = newInsn.opcode() == 188
+                ? atypeName(newInsn.operand())
+                : newInsn.operand().replace('/', '.');
+        // 数组创建前的尺寸常量仍在栈顶；仅当折叠成功时才弹出，避免破坏栈。
+        if (stack.isEmpty() || !(stack.peek() instanceof Expr.Const)) {
+            return null;
+        }
+        int i = start + 1;
+        List<Expr> elems = new ArrayList<>();
+        while (i + 3 <= to && i + 3 < insns.size()) {
+            if (insns.get(i).opcode() != 89) {   // dup
+                break;
+            }
+            Insn idxInsn = insns.get(i + 1);
+            Insn valInsn = insns.get(i + 2);
+            Insn storeInsn = insns.get(i + 3);
+            int storeOp = storeInsn.opcode();
+            if (storeOp < 79 || storeOp > 86) {  // *astore
+                break;
+            }
+            Integer pos = intConst(idxInsn);
+            if (pos == null || pos != elems.size()) {
+                break;
+            }
+            String lit = constOf(valInsn);
+            if (lit == null) {
+                break;
+            }
+            elems.add(new Expr.Const(valInsn.index(), lit));
+            i += 4;
+        }
+        if (elems.isEmpty()) {
+            return null;
+        }
+        stack.pop();  // 折叠成功：弹掉数组尺寸常量
+        next[0] = i;
+        return new Expr.ArrayInit(newInsn.index(), type, elems);
+    }
+
+    /** 取出整型常量指令的值；非整型常量指令返回 {@code null}。 */
+    private static Integer intConst(Insn in) {
+        int op = in.opcode();
+        if (op >= 2 && op <= 8) {
+            return op - 3;
+        }
+        if (op == 16 || op == 17) {
+            try {
+                return Integer.parseInt(in.operand().trim());
+            } catch (NumberFormatException ex) {
+                return null;
+            }
+        }
+        return null;
+    }
+
+    /** 把常量压栈指令翻译为 Java 字面量；不支持则返回 {@code null}。 */
+    private static String constOf(Insn in) {
+        int op = in.opcode();
+        if (op >= 2 && op <= 8) {
+            return String.valueOf(op - 3);
+        }
+        if (op == 16 || op == 17) {
+            return in.operand();
+        }
+        if (op == 18 || op == 19) {
+            return quoteIfString(in.operand());
+        }
+        if (op == 9) {
+            return "0L";
+        }
+        if (op == 10) {
+            return "1L";
+        }
+        if (op == 11) {
+            return "0.0f";
+        }
+        if (op == 12) {
+            return "1.0f";
+        }
+        if (op == 13) {
+            return "2.0f";
+        }
+        if (op == 14) {
+            return "0.0d";
+        }
+        if (op == 15) {
+            return "1.0d";
+        }
+        return null;
+    }
+
+    /** 将 {@code newarray} 的 atype 编号映射为 Java 基本类型名。 */
+    private static String atypeName(String operand) {
+        int atype;
+        try {
+            atype = Integer.parseInt(operand.trim());
+        } catch (NumberFormatException ex) {
+            return "Object";
+        }
+        return switch (atype) {
+            case 4 -> "boolean";
+            case 5 -> "char";
+            case 6 -> "float";
+            case 7 -> "double";
+            case 8 -> "byte";
+            case 9 -> "short";
+            case 10 -> "int";
+            case 11 -> "long";
+            default -> "Object";
+        };
     }
 
     /** 统计方法描述符的参数个数（长/双精度计为一个值）。 */
