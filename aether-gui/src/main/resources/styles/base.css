@@ -457,17 +457,45 @@
 
 /* ---------------------------------------------------------------- 滚动条 */
 
+/* 缺陷修复：原先滚动条轨道用 -ae-bg、滑块用 -ae-border。在浅色皮肤下两者都接近纯白，
+   滑块几乎看不见，整条滚动条像一条白条，和整体观感不符。改为：轨道透明（露出所在面板的
+   底色），滑块用次级文字色（-ae-text-dim）派生的中性灰——它在浅色皮肤上足够深、在深色
+   皮肤上足够亮，六套皮肤都协调；并隐藏两端箭头按钮，让滚动条更简洁现代。 */
 .scroll-bar {
-    -fx-background-color: -ae-bg;
+    -fx-background-color: transparent;
+    -fx-padding: 1;
+}
+
+.scroll-bar > .track,
+.scroll-bar > .track-background {
+    -fx-background-color: transparent;
+    -fx-border-color: transparent;
 }
 
 .scroll-bar .thumb {
-    -fx-background-color: -ae-border;
+    -fx-background-color: derive(-ae-text-dim, 25%);
     -fx-background-radius: 6;
+    -fx-background-insets: 2;
 }
 
 .scroll-bar .thumb:hover {
-    -fx-background-color: derive(-ae-accent, -30%);
+    -fx-background-color: derive(-ae-accent, 20%);
+}
+
+.scroll-bar .thumb:pressed {
+    -fx-background-color: -ae-accent;
+}
+
+.scroll-bar .increment-button,
+.scroll-bar .decrement-button {
+    -fx-background-color: transparent;
+    -fx-padding: 0;
+}
+
+.scroll-bar .increment-arrow,
+.scroll-bar .decrement-arrow {
+    -fx-shape: " ";
+    -fx-padding: 0;
 }
 
 .scroll-bar .increment-button,
