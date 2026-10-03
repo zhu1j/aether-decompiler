@@ -90,7 +90,18 @@ public final class CfgBuilder {
             if (tce.handlerIndex() >= 0 && tce.handlerIndex() < n) {
                 isLeader[tce.handlerIndex()] = true;
             }
+            // 受保护区间边界也必须成为前导点：否则 try 体可能与后续指令共享一个
+            // 基本块，下游无法在块粒度上切出干净的 try 范围（曾导致 try/catch
+            // 结构被整段丢弃）。起始含首、结束不含尾，因此两者都切。
+            if (tce.startIndex() >= 0 && tce.startIndex() < n) {
+                isLeader[tce.startIndex()] = true;
+            }
+            if (tce.endIndex() >= 0 && tce.endIndex() < n) {
+                isLeader[tce.endIndex()] = true;
+            }
         }
+        // 紧跟异常处理器入口之后、以及紧跟受保护区间结束之后无需额外处理：
+        // 前导点已保证这些位置自成块首。
 
         // 2. 在前导点处把指令流切分为基本块。
         List<int[]> ranges = new ArrayList<>(); // [起始指令, 结束指令]

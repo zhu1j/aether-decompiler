@@ -23,8 +23,11 @@ import com.aetherdecompiler.core.cfg.ControlFlowGraph;
 import com.aetherdecompiler.core.cfg.DominatorTree;
 import com.aetherdecompiler.core.model.AccessFlags;
 import com.aetherdecompiler.core.model.ClassModel;
+import com.aetherdecompiler.core.model.LocalVariable;
 import com.aetherdecompiler.core.model.MethodModel;
 
+import java.util.LinkedHashMap;
+import java.util.Map;
 import java.util.function.IntFunction;
 
 /**
@@ -50,10 +53,11 @@ public final class AstBuilder {
     public MethodBody build(ClassModel owner, MethodModel method) {
         ControlFlowGraph cfg = cfgBuilder.build(owner, method);
         DominatorTree dom = DominatorTree.of(cfg);
-        ControlStructurer structurer = new ControlStructurer(cfg, dom, varNamer(method));
+        ControlStructurer structurer =
+                new ControlStructurer(cfg, dom, varNamer(method), method.tryCatchEntries());
         Stmt body = structurer.structure();
         return new MethodBody(owner.name(), method.name(), method.descriptor(),
-                method.access(), body, structurer.isIrreducible());
+                method.access(), body, structurer.isIrreducible(), localNames(method));
     }
 
     /**
@@ -67,21 +71,71 @@ public final class AstBuilder {
      */
     public MethodBody build(ClassModel owner, MethodModel method,
                             ControlFlowGraph cfg, DominatorTree dom) {
-        ControlStructurer structurer = new ControlStructurer(cfg, dom, varNamer(method));
+        ControlStructurer structurer =
+                new ControlStructurer(cfg, dom, varNamer(method), method.tryCatchEntries());
         Stmt body = structurer.structure();
         return new MethodBody(owner.name(), method.name(), method.descriptor(),
-                method.access(), body, structurer.isIrreducible());
+                method.access(), body, structurer.isIrreducible(), localNames(method));
     }
 
     /**
-     * 按“槽位 → Java 显示名”的规则构造命名器：
-     * 实例方法的槽 0 是 {@code this} 引用；其余槽位（含形参）统一命名为 {@code vN}，
-     * 与渲染器生成的形参名保持一致，从而让方法签名与体中的引用互相对应。
+     * 按“槽位 → Java 显示名”的规则构造命名器：优先采用 LocalVariableTable 提供的
+     * 真实变量名（重名时以槽位为后缀去重），否则回退为 {@code this} / {@code vN}。
      *
-     * <p>将来接入 LocalVariableTable / SSA 时，只需替换本命名器即可恢复真实变量名。</p>
+     * <p>实例方法的槽 0 恒为 {@code this} 引用。当调试信息缺失（例如被混淆剥离）时，
+     * 命名自然退化为槽位名，保持输出稳定可读。</p>
      */
     private static IntFunction<String> varNamer(MethodModel method) {
         boolean isStatic = AccessFlags.isStatic(method.access());
-        return slot -> (slot == 0 && !isStatic) ? "this" : ("v" + slot);
+        Map<Integer, String> names = localNames(method);
+        return slot -> {
+            if (slot == 0 && !isStatic) {
+                return "this";
+            }
+            String name = names.get(slot);
+            return name != null ? name : ("v" + slot);
+        };
+    }
+
+    /**
+     * 把 LocalVariableTable 折叠为“槽位 → 去重后的显示名”。同一槽位可能存在多条
+     * 生命周期互不重叠的记录（不同时间扮演不同变量）；这里保留每个槽位首次出现的
+     * 名字，并对全表重名做槽位后缀去重，避免生成非法标识符冲突。
+     */
+    private static Map<Integer, String> localNames(MethodModel method) {
+        Map<Integer, String> out = new LinkedHashMap<>();
+        if (method.localVariables().isEmpty()) {
+            return out;
+        }
+        java.util.Set<String> used = new java.util.HashSet<>();
+        for (LocalVariable lv : method.localVariables()) {
+            int slot = lv.index();
+            if (out.containsKey(slot)) {
+                continue;
+            }
+            String name = sanitize(lv.name());
+            if (name.isEmpty() || !used.add(name)) {
+                name = name.isEmpty() ? ("v" + slot) : (name + "_" + slot);
+                used.add(name);
+            }
+            out.put(slot, name);
+        }
+        return out;
+    }
+
+    /** 把不合法的 Java 标识符字符替换为下划线，并对纯数字/关键字做保守处理。 */
+    private static String sanitize(String raw) {
+        if (raw == null || raw.isEmpty()) {
+            return "";
+        }
+        StringBuilder sb = new StringBuilder(raw.length());
+        for (int i = 0; i < raw.length(); i++) {
+            char c = raw.charAt(i);
+            boolean ok = i == 0
+                    ? (Character.isJavaIdentifierStart(c))
+                    : (Character.isJavaIdentifierPart(c));
+            sb.append(ok ? c : '_');
+        }
+        return sb.toString();
     }
 }

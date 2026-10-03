@@ -18,9 +18,11 @@
  */
 package com.aetherdecompiler.gui.view;
 
+import com.aetherdecompiler.api.SourceMapping;
 import com.aetherdecompiler.api.SourceTree;
 import com.aetherdecompiler.core.ast.JavaAstRenderer;
 import com.aetherdecompiler.core.engine.DecompilationPipeline;
+import com.aetherdecompiler.core.mapping.DefaultSourceMapping;
 import com.aetherdecompiler.core.model.ClassModel;
 import javafx.scene.control.Label;
 import javafx.scene.control.SplitPane;
@@ -28,6 +30,7 @@ import javafx.scene.layout.Priority;
 import javafx.scene.layout.VBox;
 import org.fxmisc.richtext.CodeArea;
 
+import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -51,6 +54,18 @@ public final class AnalysisView extends SplitPane {
 
     private final CodeArea ssaArea = text();
     private final CodeArea astArea = text();
+
+    /** 每个方法在 AST 文本中的起始行偏移 + 其源码映射，用于“选中指令 → 定位 AST 行”。 */
+    private final List<MethodRegion> astRegions = new ArrayList<>();
+
+    /**
+     * 单个方法在 AST 文本区中占据的行区间与其源码映射。
+     *
+     * @param startLine 该方法内容首行在 AST 文本区中的 1 基行号
+     * @param mapping   该方法渲染时产生的源码映射（提供指令 → 文本的反查）
+     */
+    private record MethodRegion(int startLine, DefaultSourceMapping mapping) {
+    }
 
     /**
      * 创建分析视图。
@@ -109,6 +124,8 @@ public final class AnalysisView extends SplitPane {
         ssa.append("// ").append(model.dottedName()).append(" — SSA 形式\n");
         StringBuilder ast = new StringBuilder();
         JavaAstRenderer renderer = new JavaAstRenderer();
+        astRegions.clear();
+        int astLine = 1;
         int methodCount = 0;
         for (DecompilationPipeline.MethodAnalysis m : analysis.methods()) {
             methodCount++;
@@ -125,7 +142,14 @@ public final class AnalysisView extends SplitPane {
             }
             SourceTree tree = renderer.render(m.ast());
             if (tree != null && tree.content() != null) {
-                ast.append(tree.content()).append('\n');
+                // 缺陷修复：记录每个方法在 AST 文本区中的起始行与其源码映射，
+                // 使“选中源码行/指令”能够反向定位到 AST 栏中的对应文本并高亮。
+                if (tree.mapping() instanceof DefaultSourceMapping dsm) {
+                    astRegions.add(new MethodRegion(astLine, dsm));
+                }
+                String content = tree.content();
+                ast.append(content).append('\n');
+                astLine += countLines(content) + 1;
             }
         }
         if (methodCount == 0) {
@@ -133,6 +157,73 @@ public final class AnalysisView extends SplitPane {
         }
         ssaArea.replaceText(ssa.toString());
         astArea.replaceText(ast.length() == 0 ? "// （无可渲染的 AST）\n" : ast.toString());
+    }
+
+    /** 统计一段文本包含的行数（以 {@code '\n'} 计）。 */
+    private static int countLines(String text) {
+        int n = 0;
+        for (int i = 0; i < text.length(); i++) {
+            if (text.charAt(i) == '\n') {
+                n++;
+            }
+        }
+        return n;
+    }
+
+    /**
+     * 按指令索引把 AST 文本区滚动到对应位置并选中该段文本。
+     *
+     * <p>缺陷修复：用户点击源码某一行时，此前 AST 栏毫无反应。现在借助每个方法渲染时
+     * 产出的源码映射，把“字节码指令索引”反查为“AST 文本区中的行列”，滚动过去并高亮，
+     * 让联动真正闭环。</p>
+     *
+     * @param insnIndex 目标指令索引；{@code < 0} 表示清空选中
+     */
+    public void focusInsn(int insnIndex) {
+        if (insnIndex < 0 || astRegions.isEmpty()) {
+            clearSelection();
+            return;
+        }
+        for (MethodRegion region : astRegions) {
+            List<SourceMapping.Span> spans = region.mapping().atInsn(insnIndex);
+            if (spans.isEmpty()) {
+                continue;
+            }
+            SourceMapping.Span s = spans.get(0);
+            int line = region.startLine() + (s.generatedStartLine() - 1);
+            int lineEnd = region.startLine() + (s.generatedEndLine() - 1);
+            String[] lines = astArea.getText().split("\n", -1);
+            if (line < 1 || line > lines.length) {
+                continue;
+            }
+            int start = offsetOfLine(lines, line) + Math.max(0, s.generatedStartCol());
+            int endLine = Math.min(Math.max(lineEnd, line), lines.length);
+            int end = offsetOfLine(lines, endLine) + Math.max(0, s.generatedEndCol());
+            start = clamp(start, 0, astArea.getLength());
+            end = clamp(end, start, astArea.getLength());
+            astArea.selectRange(start, end);
+            astArea.requestFollowCaret();
+            astArea.requestFocus();
+            return;
+        }
+        clearSelection();
+    }
+
+    /** 清空 AST 文本区的选择。 */
+    private void clearSelection() {
+        astArea.deselect();
+    }
+
+    private static int offsetOfLine(String[] lines, int oneBasedLine) {
+        int off = 0;
+        for (int i = 0; i < oneBasedLine - 1 && i < lines.length; i++) {
+            off += lines[i].length() + 1;
+        }
+        return off;
+    }
+
+    private static int clamp(int v, int lo, int hi) {
+        return Math.max(lo, Math.min(hi, v));
     }
 
     /**

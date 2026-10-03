@@ -21,6 +21,8 @@ package com.aetherdecompiler.core.ast;
 import com.aetherdecompiler.api.IRKind;
 import com.aetherdecompiler.api.IRObject;
 
+import java.util.Map;
+
 /**
  * 单个方法的抽象语法树（AST）根：一条语句树 + 元数据。
  *
@@ -42,8 +44,11 @@ public final class MethodBody implements IRObject {
     private final int access;
     private final Stmt body;
     private final boolean irreducible;
+    private final Map<Integer, String> localNames;
 
     /**
+     * 兼容旧签名的构造器：不含局部变量名表。缺省命名回退为 {@code vN}。
+     *
      * @param ownerClass  所属类内部名
      * @param methodName  方法名
      * @param descriptor  方法描述符
@@ -53,12 +58,27 @@ public final class MethodBody implements IRObject {
      */
     public MethodBody(String ownerClass, String methodName, String descriptor, int access,
                       Stmt body, boolean irreducible) {
+        this(ownerClass, methodName, descriptor, access, body, irreducible, Map.of());
+    }
+
+    /**
+     * @param ownerClass  所属类内部名
+     * @param methodName  方法名
+     * @param descriptor  方法描述符
+     * @param access      原始访问标志
+     * @param body        语句树根
+     * @param irreducible 是否因不可规约控制流而退回线性/标签模式
+     * @param localNames  局部槽位 → 显示名（来自 LocalVariableTable；无调试信息时为空）
+     */
+    public MethodBody(String ownerClass, String methodName, String descriptor, int access,
+                      Stmt body, boolean irreducible, Map<Integer, String> localNames) {
         this.ownerClass = ownerClass;
         this.methodName = methodName;
         this.descriptor = descriptor;
         this.access = access;
         this.body = body;
         this.irreducible = irreducible;
+        this.localNames = Map.copyOf(localNames);
     }
 
     /** @return 所属类内部名 */
@@ -89,6 +109,11 @@ public final class MethodBody implements IRObject {
     /** @return 是否因不可规约控制流而退回线性模式 */
     public boolean isIrreducible() {
         return irreducible;
+    }
+
+    /** @return 局部槽位 → 显示名（来自 LocalVariableTable；无调试信息时为空） */
+    public Map<Integer, String> localNames() {
+        return localNames;
     }
 
     /** @return 方法标识符 {@code name + descriptor} */

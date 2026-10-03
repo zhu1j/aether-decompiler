@@ -44,10 +44,14 @@ public final class MethodModel implements IRObject {
     private final String signature;
     private final List<Insn> instructions;
     private final List<TryCatchEntry> tryCatchEntries;
+    private final List<LocalVariable> localVariables;
     private final int maxStack;
     private final int maxLocals;
 
     /**
+     * 兼容旧签名的构造器：不含局部变量表。缺省局部变量表为空，
+     * 下游命名回退为 {@code vN}。
+     *
      * @param access          原始访问标志
      * @param name            方法名
      * @param descriptor      方法描述符，例如 {@code "(I)J"}
@@ -60,12 +64,31 @@ public final class MethodModel implements IRObject {
     public MethodModel(int access, String name, String descriptor, String signature,
                        List<Insn> instructions, List<TryCatchEntry> tryCatchEntries,
                        int maxStack, int maxLocals) {
+        this(access, name, descriptor, signature, instructions, tryCatchEntries,
+                List.of(), maxStack, maxLocals);
+    }
+
+    /**
+     * @param access          原始访问标志
+     * @param name            方法名
+     * @param descriptor      方法描述符，例如 {@code "(I)J"}
+     * @param signature       泛型签名，或 {@code null}
+     * @param instructions    不可变指令列表（永不为 {@code null}）
+     * @param tryCatchEntries 不可变异常表（永不为 {@code null}）
+     * @param localVariables  不可变局部变量表（永不为 {@code null}，无调试信息时为空）
+     * @param maxStack        最大操作数栈深度；若为抽象方法则为 {@code -1}
+     * @param maxLocals       最大局部变量槽数；若为抽象方法则为 {@code -1}
+     */
+    public MethodModel(int access, String name, String descriptor, String signature,
+                       List<Insn> instructions, List<TryCatchEntry> tryCatchEntries,
+                       List<LocalVariable> localVariables, int maxStack, int maxLocals) {
         this.access = access;
         this.name = Objects.requireNonNull(name, "name");
         this.descriptor = Objects.requireNonNull(descriptor, "descriptor");
         this.signature = signature;
         this.instructions = List.copyOf(instructions);
         this.tryCatchEntries = List.copyOf(tryCatchEntries);
+        this.localVariables = List.copyOf(localVariables);
         this.maxStack = maxStack;
         this.maxLocals = maxLocals;
     }
@@ -98,6 +121,11 @@ public final class MethodModel implements IRObject {
     /** @return 不可变异常表 */
     public List<TryCatchEntry> tryCatchEntries() {
         return tryCatchEntries;
+    }
+
+    /** @return 不可变局部变量表（无调试信息时为空） */
+    public List<LocalVariable> localVariables() {
+        return localVariables;
     }
 
     /** @return 最大操作数栈深度，或 {@code -1} */

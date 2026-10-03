@@ -1410,6 +1410,9 @@ public final class AetherStudio extends Application {
         int target = Math.min(line - 1, Math.max(0, insnCount - 1));
         bytecodeView.highlight(target);
         showSelection(cfg, target);
+        // 缺陷修复：点击源码行此前只联动字节码与右侧检查器，「分析」栏（AST）毫无反应。
+        // 现在把选中的指令同步到分析视图，滚动并高亮对应的 AST 文本片段，形成三视图闭环。
+        analysisView.focusInsn(target);
         statusLabel.setText("源码行 " + line + " \u2192 指令 " + target);
     }
 
@@ -1450,6 +1453,8 @@ public final class AetherStudio extends Application {
         }
         ControlFlowGraph cfg = currentResult.cfgs().get(0);
         showSelection(cfg, row.index());
+        // 缺陷修复：反向联动同样补上「分析」栏定位，使字节码 → 源码 → AST 三者一致。
+        analysisView.focusInsn(row.index());
         // 指令索引 ≈ 源码行（保守近似），把源码视图滚到该行形成闭环反馈。
         codeView.focusLine(Math.max(1, row.index() + 1));
         statusLabel.setText("指令 " + row.index() + " " + row.mnemonic() + " \u2192 源码行 " + (row.index() + 1));

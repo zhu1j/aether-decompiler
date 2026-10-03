@@ -67,6 +67,19 @@ public final class JavaAstRenderer {
     private String currentReturnType = "void";
     /** 当前渲染的类是否为接口（决定带体方法是否需加 {@code default}）。 */
     private boolean currentIsInterface = false;
+    /** 当前方法局部槽位 → 显示名（来自 LocalVariableTable；无调试信息时为空）。 */
+    private Map<Integer, String> localNames = Map.of();
+    /** 当前方法是否为静态（影响槽 0 的 this 语义）。 */
+    private boolean currentIsStatic = false;
+
+    /** 槽位 → 显示名：优先真实变量名，否则回退 {@code this}/{@code vN}。 */
+    private String nameOf(int slot) {
+        if (slot == 0 && !currentIsStatic) {
+            return "this";
+        }
+        String n = localNames.get(slot);
+        return n != null ? n : ("v" + slot);
+    }
 
     /**
      * 渲染一个方法体（单方法视图）。
@@ -169,6 +182,8 @@ public final class JavaAstRenderer {
     /** 渲染单个方法（含 {@code <init>}/{@code <clinit>} 的意译）。 */
     private void emitMethod(MethodBody body) {
         String name = body.methodName();
+        this.localNames = body.localNames();
+        this.currentIsStatic = AccessFlags.isStatic(body.access());
         if ("<clinit>".equals(name)) {
             // 类静态初始化器不是普通方法：渲染为 static { ... } 块。
             currentReturnType = "void";
@@ -230,6 +245,60 @@ public final class JavaAstRenderer {
         return false;
     }
 
+    /**
+     * 布尔语义提升：把以 {@code 0/1} 模拟布尔返回值的表达式还原为 {@code false/true}。
+     * 其余表达式原样渲染（例如已经重建出的比较表达式）。
+     */
+    private static String booleanLiteral(Expr e) {
+        if (e instanceof Expr.Const c) {
+            String v = c.value();
+            if ("0".equals(v)) {
+                return "false";
+            }
+            if ("1".equals(v)) {
+                return "true";
+            }
+        }
+        return e.render();
+    }
+
+    /**
+     * 条件表达式渲染：把“布尔变量与 0/1 常量比较”还原为与 {@code false/true} 比较。
+     *
+     * <p>字节码中布尔值以 {@code int} 承载，比较时出现 {@code ifeq}/{@code ifne} 等，
+     * 会被重建为 {@code v1 == 0}。若 {@code v1} 的声明类型是 {@code boolean}，这种
+     * 写法在 Java 里非法；这里据类型把它提升为 {@code v1 == false}。非布尔情形
+     * 原样渲染。</p>
+     */
+    private String condText(Expr e) {
+        if (e instanceof Expr.Binary b) {
+            String op = b.op();
+            if (("==".equals(op) || "!=".equals(op))) {
+                Expr l = b.left();
+                Expr r = b.right();
+                if (isBooleanOperand(l) && isBoolConst(r)) {
+                    return expr(l) + " " + op + " " + boolConst(r);
+                }
+                if (isBooleanOperand(r) && isBoolConst(l)) {
+                    return boolConst(l) + " " + op + " " + expr(r);
+                }
+            }
+        }
+        return expr(e);
+    }
+
+    private boolean isBooleanOperand(Expr e) {
+        return "boolean".equals(inferType(e));
+    }
+
+    private static boolean isBoolConst(Expr e) {
+        return e instanceof Expr.Const c && ("0".equals(c.value()) || "1".equals(c.value()));
+    }
+
+    private static String boolConst(Expr e) {
+        return "1".equals(((Expr.Const) e).value()) ? "true" : "false";
+    }
+
     /** 按类型给出默认字面量，用于未解析返回值的降级与末尾兜底。 */
     private static String defaultLiteral(String type) {
         return switch (type) {
@@ -286,10 +355,10 @@ public final class JavaAstRenderer {
         boolean any = false;
         for (Map.Entry<Integer, String> en : localTypes.entrySet()) {
             int slot = en.getKey();
-            if (paramSlots.contains(slot)) {
+            if (paramSlots.contains(slot) || (slot == 0 && !currentIsStatic)) {
                 continue;
             }
-            emitLine(null, en.getValue() + " v" + slot + ";");
+            emitLine(null, en.getValue() + " " + nameOf(slot) + ";");
             any = true;
         }
         if (any) {
@@ -332,6 +401,9 @@ public final class JavaAstRenderer {
             for (Stmt.CatchClause c : tc.catches()) {
                 collectLocals(c.body());
             }
+        } else if (s instanceof Stmt.Synchronized sy) {
+            collectLocals(sy.body());
+            scanExpr(sy.lock());
         }
     }
 
@@ -363,7 +435,7 @@ public final class JavaAstRenderer {
             return simpleName(n.type());
         }
         if (e instanceof Expr.NewArray a) {
-            return a.type() + "[]";
+            return a.type() + "[]".repeat(1 + a.extraDims());
         }
         if (e instanceof Expr.NewMultiArray a) {
             return a.type() + "[]".repeat(a.sizes().size());
@@ -451,19 +523,26 @@ public final class JavaAstRenderer {
     }
 
     private String methodSignature(MethodBody body) {
-        return methodSignature(body.ownerClass(), body.methodName(), body.descriptor(), body.access());
+        return methodSignature(body.ownerClass(), body.methodName(), body.descriptor(), body.access(),
+                body.localNames());
     }
 
     /** 由 owner/name/descriptor/access 直接生成方法签名（用于抽象/原生方法的声明）。 */
     private String methodSignature(String owner, String name, String descriptor, int access) {
+        return methodSignature(owner, name, descriptor, access, Map.of());
+    }
+
+    /** 由描述符与局部变量名表生成方法签名（形参名与体中的引用保持一致）。 */
+    private String methodSignature(String owner, String name, String descriptor, int access,
+                                   Map<Integer, String> names) {
         String desc = descriptor == null ? "()V" : descriptor;
         String simple = simpleName(owner);
         boolean isStatic = AccessFlags.isStatic(access);
         if ("<init>".equals(name)) {
-            return "public " + simple + "(" + paramList(desc, false) + ")";
+            return "public " + simple + "(" + paramList(desc, false, names) + ")";
         }
         String mod = isStatic ? "public static " : "public ";
-        return mod + returnType(desc) + " " + name + "(" + paramList(desc, isStatic) + ")";
+        return mod + returnType(desc) + " " + name + "(" + paramList(desc, isStatic, names) + ")";
     }
 
     /** 字段声明：访问标志 + 类型 + 名字（+ 常量初始化式）。 */
@@ -503,8 +582,13 @@ public final class JavaAstRenderer {
 
     // ---- 描述符 → Java 类型（意译核心）----
 
-    /** 解析方法描述符的参数部分为 Java 形参列表，形参名按槽位递增（v1、v2……）。 */
+    /** 解析方法描述符的参数部分为 Java 形参列表，形参名优先取真实变量名。 */
     private static String paramList(String desc, boolean isStatic) {
+        return paramList(desc, isStatic, Map.of());
+    }
+
+    /** 解析方法描述符的参数部分，形参名按局部变量名表解析，缺失时回退 {@code vN}。 */
+    private static String paramList(String desc, boolean isStatic, Map<Integer, String> names) {
         StringBuilder sb = new StringBuilder();
         int slot = isStatic ? 0 : 1;
         int i = 1;
@@ -515,7 +599,8 @@ public final class JavaAstRenderer {
             if (!first) {
                 sb.append(", ");
             }
-            sb.append(t.java).append(" v").append(slot);
+            String pn = names.get(slot);
+            sb.append(t.java).append(" ").append(pn != null ? pn : ("v" + slot));
             first = false;
             slot += t.slots;
         }
@@ -642,13 +727,16 @@ public final class JavaAstRenderer {
             } else if (r.value() instanceof Expr.Opaque) {
                 // 返回值未能重建：按声明类型给出合法默认值并注明，保持可编译。
                 emitLine(s, "return " + defaultLiteral(currentReturnType) + "; // unresolved");
+            } else if ("boolean".equals(currentReturnType)) {
+                // 布尔语义提升：ireturn 0/1 还原为 return false/true。
+                emitLine(s, "return " + booleanLiteral(r.value()) + ";");
             } else {
                 emitLine(s, "return " + expr(r.value()) + ";");
             }
         } else if (s instanceof Stmt.Throw t) {
             emitLine(s, "throw " + expr(t.value()) + ";");
         } else if (s instanceof Stmt.If i) {
-            emitLine(i, "if (" + expr(i.cond()) + ") {");
+            emitLine(i, "if (" + condText(i.cond()) + ") {");
             indent++;
             statement(i.thenBranch());
             indent--;
@@ -660,7 +748,7 @@ public final class JavaAstRenderer {
             }
             emitLine(i, "}");
         } else if (s instanceof Stmt.While w) {
-            emitLine(w, "while (" + expr(w.cond()) + ") {");
+            emitLine(w, "while (" + condText(w.cond()) + ") {");
             indent++;
             statement(w.body());
             indent--;
@@ -670,7 +758,7 @@ public final class JavaAstRenderer {
             indent++;
             statement(d.body());
             indent--;
-            emitLine(d, "} while (" + expr(d.cond()) + ");");
+            emitLine(d, "} while (" + condText(d.cond()) + ");");
         } else if (s instanceof Stmt.Switch sw) {
             emitLine(sw, "switch (" + expr(sw.selector()) + ") {");
             indent++;
@@ -702,12 +790,20 @@ public final class JavaAstRenderer {
             indent--;
             emitLine(tc, "}");
             for (Stmt.CatchClause c : tc.catches()) {
-                emitLine(tc, "catch (" + (c.type() == null ? "Throwable" : simpleName(c.type())) + ") {");
+                String typeName = c.type() == null ? "Throwable" : simpleName(c.type());
+                String varName = c.varSlot() >= 0 ? nameOf(c.varSlot()) : "e";
+                emitLine(tc, "catch (" + typeName + " " + varName + ") {");
                 indent++;
                 statement(c.body());
                 indent--;
                 emitLine(tc, "}");
             }
+        } else if (s instanceof Stmt.Synchronized sy) {
+            emitLine(sy, "synchronized (" + expr(sy.lock()) + ") {");
+            indent++;
+            statement(sy.body());
+            indent--;
+            emitLine(sy, "}");
         } else {
             emitLine(s, "// " + s.label());
         }

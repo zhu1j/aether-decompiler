@@ -614,11 +614,24 @@ public abstract class Expr extends AstNode {
     public static final class NewArray extends Expr {
         private final String type;
         private final Expr size;
+        private final int extraDims;
 
         public NewArray(int insn, String type, Expr size) {
+            this(insn, type, size, 0);
+        }
+
+        /**
+         * @param insn      起始指令索引
+         * @param type      元素基类型（已翻译为 Java 类型名）
+         * @param size      第一维长度表达式，可为 {@code null}
+         * @param extraDims 额外维度数：{@code anewarray} 的元素自身是数组时 &ge; 1，
+         *                  用于正确渲染 {@code new int[n][]} 这类不规则数组
+         */
+        public NewArray(int insn, String type, Expr size, int extraDims) {
             super(insn, insn);
             this.type = type;
             this.size = size;
+            this.extraDims = Math.max(0, extraDims);
         }
 
         public String type() {
@@ -629,6 +642,10 @@ public abstract class Expr extends AstNode {
             return size;
         }
 
+        public int extraDims() {
+            return extraDims;
+        }
+
         @Override
         public List<AstNode> children() {
             return size == null ? List.of() : List.of(size);
@@ -637,7 +654,10 @@ public abstract class Expr extends AstNode {
         @Override
         public String render() {
             String t = type == null || type.isEmpty() ? "Object" : type.replace('/', '.');
-            return "new " + t + "[" + (size == null ? "" : size.render()) + "]";
+            StringBuilder sb = new StringBuilder("new ").append(t);
+            sb.append('[').append(size == null ? "" : size.render()).append(']');
+            sb.append("[]".repeat(extraDims));
+            return sb.toString();
         }
     }
 

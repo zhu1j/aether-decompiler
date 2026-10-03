@@ -22,12 +22,14 @@ import com.aetherdecompiler.core.cfg.ControlFlowGraph;
 import com.aetherdecompiler.core.cfg.DominatorTree;
 import com.aetherdecompiler.core.model.BasicBlock;
 import com.aetherdecompiler.core.model.Insn;
+import com.aetherdecompiler.core.model.TryCatchEntry;
 
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Deque;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -68,13 +70,23 @@ public final class ControlStructurer {
     private final boolean[] emitted;
     private boolean irreducible;
     private final java.util.function.IntFunction<String> varNamer;
+    /** 方法异常表：用于把“受保护区间 + 处理器”还原为 try/catch。 */
+    private final List<TryCatchEntry> tryEntries;
+    /** 异常处理器所在局部槽位（对每个处理器块，取入口后的首个 astore）。 */
+    private final List<TryCatchEntry> tryEntryList;
+    /** 起始块 id → 以该块为受保护区起点的异常表条目。 */
+    private final Map<Integer, List<TryCatchEntry>> tryByStartBlock = new LinkedHashMap<>();
+    /** 已被 try 结构化消费的起始块，避免 region 递归时重复触发。 */
+    private final Set<Integer> tryHandled = new HashSet<>();
+    /** 起始块 id → 结构化该 try 之后应继续的块 id。 */
+    private final Map<Integer, Integer> tryFollow = new HashMap<>();
 
     /**
      * @param cfg 控制流图
      * @param dom 支配树
      */
     public ControlStructurer(ControlFlowGraph cfg, DominatorTree dom) {
-        this(cfg, dom, null);
+        this(cfg, dom, null, List.of());
     }
 
     /**
@@ -84,13 +96,39 @@ public final class ControlStructurer {
      */
     public ControlStructurer(ControlFlowGraph cfg, DominatorTree dom,
                              java.util.function.IntFunction<String> varNamer) {
+        this(cfg, dom, varNamer, List.of());
+    }
+
+    /**
+     * @param cfg        控制流图
+     * @param dom        支配树
+     * @param varNamer   槽位 → 显示名的映射（可传 SSA 名或 {@code this}）；{@code null} 时用 {@code vN}
+     * @param tryEntries 方法异常表；用于还原 try/catch 结构，空表示无异常处理
+     */
+    public ControlStructurer(ControlFlowGraph cfg, DominatorTree dom,
+                             java.util.function.IntFunction<String> varNamer,
+                             List<TryCatchEntry> tryEntries) {
         this.cfg = cfg;
         this.dom = dom;
         this.varNamer = varNamer;
+        this.tryEntries = List.copyOf(tryEntries);
+        this.tryEntryList = this.tryEntries;
         this.insns = cfg.instructions();
         this.emitted = new boolean[Math.max(1, cfg.blockCount())];
         this.predecessors = computePredecessors();
         detectLoops();
+        indexTryEntries();
+    }
+
+    /** 把异常表按“受保护区间的起始块”建索引，供结构化主循环识别 try 入口。 */
+    private void indexTryEntries() {
+        for (TryCatchEntry e : tryEntries) {
+            int startBlock = blockIdOfInsn(e.startIndex());
+            if (startBlock < 0) {
+                continue;
+            }
+            tryByStartBlock.computeIfAbsent(startBlock, k -> new ArrayList<>()).add(e);
+        }
     }
 
     /** @return 结构化后的语句树 */
@@ -126,6 +164,28 @@ public final class ControlStructurer {
         int guard = 0;
         int limit = Math.max(4, cfg.blockCount() * 4);
         while (cur >= 0 && cur != stop && !emitted[cur] && guard++ < limit) {
+            // 同步块：当前块以 monitorenter 结尾，其后由编译器生成的 finally
+            // （monitorexit + athrow）守护。优先还原为 synchronized，避免泄漏
+            // 监视器指令或退化出错误的 try/finally。
+            if (endsWithMonitorEnter(cur) && !tryHandled.contains(cur)) {
+                Stmt sync = structureSynchronized(cur, depth);
+                if (sync != null) {
+                    out.add(sync);
+                    Integer follow = syncFollow.get(cur);
+                    cur = follow == null ? -1 : follow;
+                    continue;
+                }
+            }
+            // 异常处理：若当前块是某个受保护区间的起点，优先还原为 try/catch。
+            if (tryByStartBlock.containsKey(cur) && !tryHandled.contains(cur)) {
+                Stmt tryStmt = structureTry(cur, depth);
+                if (tryStmt != null) {
+                    out.add(tryStmt);
+                    Integer follow = tryFollow.get(cur);
+                    cur = follow == null ? -1 : follow;
+                    continue;
+                }
+            }
             if (loopHeaders.contains(cur) && dom.dominates(cur, backEdgeSource(cur))) {
                 Stmt loop = structureLoop(cur, depth);
                 if (loop != null) {
@@ -160,6 +220,213 @@ public final class ControlStructurer {
     }
 
     private final Map<Integer, Integer> branchJoin = new HashMap<>();
+    /** 同步块头部块 id → 结构化该同步块之后应继续的块 id。 */
+    private final Map<Integer, Integer> syncFollow = new HashMap<>();
+    /** 块 id → 基本块对象，供同步块还原时读取后继等结构信息。 */
+    private final Map<Integer, BasicBlock> blockById = new HashMap<>();
+
+    /**
+     * 把一个受保护区间还原为 {@link Stmt.TryCatch}。
+     *
+     * <p>算法：以异常表中“起始块”命中的条目为入口，取受保护区间的首尾界定 try 体范围；
+     * try 体由 {@code region} 在普通后继上结构化（异常边不参与普通规约，因此处理器
+     * 不会被误并入 try 体）。随后把同一受保护区间的每个处理器结构化为一个
+     * {@link Stmt.CatchClause}。若边界不干净（起止落在同一块内）或无可还原的处理器，
+     * 则返回 {@code null}，交回线性结构化主流程，绝不硬掰出错误的树。</p>
+     *
+     * @param startBlock 受保护区间的起始块 id
+     * @param depth      递归深度
+     * @return 还原出的 try/catch；无法还原时为 {@code null}
+     */
+    private Stmt structureTry(int startBlock, int depth) {
+        List<TryCatchEntry> entries = tryByStartBlock.get(startBlock);
+        if (entries == null || entries.isEmpty()) {
+            return null;
+        }
+        TryCatchEntry first = entries.get(0);
+        int endInsn = first.endIndex();
+        int stopBlock = endInsn >= insns.size() ? -1 : blockIdOfInsn(endInsn);
+        // 起止落在同一块内：无法在块粒度上切出干净的 try 区间，诚实地放弃。
+        if (stopBlock == startBlock) {
+            return null;
+        }
+        tryHandled.add(startBlock);
+        Stmt body = region(startBlock, stopBlock, depth + 1);
+
+        List<Stmt.CatchClause> catches = new ArrayList<>();
+        for (TryCatchEntry e : entries) {
+            if (e.startIndex() != first.startIndex() || e.endIndex() != first.endIndex()) {
+                continue;
+            }
+            int hBlock = blockIdOfInsn(e.handlerIndex());
+            if (hBlock < 0) {
+                continue;
+            }
+            int slot = catchVarSlot(e.handlerIndex());
+            // 处理器入口的 astore 把“栈上的异常对象”存入捕获变量。异常对象来自隐式
+            // 栈顶，无法在表达式层建模，且 catch 形参已声明该变量；因此剥离这条首语句，
+            // 否则会渲染出形如“ex = <unresolved>;”的噪声。
+            Stmt hBody = stripCatchStore(region(hBlock, stopBlock, depth + 1), slot);
+            catches.add(new Stmt.CatchClause(e.catchType(), slot, hBody));
+        }
+        if (catches.isEmpty()) {
+            return null;
+        }
+        tryFollow.put(startBlock, stopBlock);
+        return new Stmt.TryCatch(firstInsnOf(startBlock), lastInsnOf(startBlock, stopBlock),
+                body, catches);
+    }
+
+    /** 判断某块是否以 {@code monitorenter} 结尾（同步块的头部特征）。 */
+    private boolean endsWithMonitorEnter(int blockId) {
+        BasicBlock b = cfg.block(blockId);
+        if (b == null || b.lastInsn() < 0 || b.lastInsn() >= insns.size()) {
+            return false;
+        }
+        return insns.get(b.lastInsn()).opcode() == 194;
+    }
+
+    /**
+     * 把一个同步块还原为 {@link Stmt.Synchronized}。
+     *
+     * <p>javac 把 {@code synchronized (lock) { body }} 展开为：计算锁引用 + {@code dup}
+     * + {@code astore} 暂存 + {@code monitorenter}，随后是被编译器生成的 finally
+     * （{@code monitorexit} + {@code athrow}）保护的同步体。这里识别“以 monitorenter
+     * 结尾的头部块”，取回锁表达式，把受保护区间结构化为同步体，并跳到监视器释放后的
+     * 汇合点继续。无法干净还原时返回 {@code null}，交回普通流程，绝不硬掰。</p>
+     *
+     * @param headerBlock 同步块头部块 id（以 monitorenter 结尾）
+     * @param depth       递归深度
+     * @return 还原出的同步语句；无法还原时为 {@code null}
+     */
+    private Stmt structureSynchronized(int headerBlock, int depth) {
+        BasicBlock header = cfg.block(headerBlock);
+        if (header == null) {
+            return null;
+        }
+        int mEnter = header.lastInsn();
+        if (mEnter < 0 || mEnter >= insns.size() || insns.get(mEnter).opcode() != 194) {
+            return null;
+        }
+        List<Integer> hSucc = normalSuccessors(headerBlock);
+        if (hSucc.size() != 1) {
+            return null;
+        }
+        int bodyStart = hSucc.get(0);
+        int bodyFirstInsn = firstInsnOf(bodyStart);
+        TryCatchEntry guard = null;
+        for (TryCatchEntry e : tryEntries) {
+            if (e.startIndex() == bodyFirstInsn) {
+                guard = e;
+                break;
+            }
+        }
+        if (guard == null) {
+            return null;
+        }
+        int endBlock = blockIdOfInsn(guard.endIndex() - 1);
+        int follow = -1;
+        if (endBlock >= 0) {
+            List<Integer> es = normalSuccessors(endBlock);
+            if (!es.isEmpty()) {
+                follow = es.get(0);
+            }
+        }
+        if (follow < 0) {
+            return null;
+        }
+        Expr lock = buildLockExpr(headerBlock, mEnter);
+        tryHandled.add(headerBlock);
+        tryHandled.add(bodyStart);
+        Stmt body = region(bodyStart, follow, depth + 1);
+        syncFollow.put(headerBlock, follow);
+        return new Stmt.Synchronized(header.firstInsn(), mEnter, lock, body);
+    }
+
+    /**
+     * 取回同步块的锁表达式：在头部块上（不含 monitorenter）做一次块内重建，栈顶即锁。
+     */
+    private Expr buildLockExpr(int headerBlock, int mEnter) {
+        ExpressionBuilder eb = new ExpressionBuilder(varNamer);
+        eb.build(insns, firstInsnOf(headerBlock), mEnter - 1);
+        Expr lock = eb.topExpr();
+        return lock != null ? lock : new Expr.Opaque(mEnter, "monitor");
+    }
+
+    /**
+     * 探测某个异常处理器入口的捕获变量槽位：处理器入口通常紧接一条 {@code astore}，
+     * 把抛出的异常存入局部变量。找到则返回该槽位，供渲染器恢复 {@code catch (T name)}。
+     */
+    private int catchVarSlot(int handlerIndex) {
+        int limit = Math.min(insns.size(), handlerIndex + 4);
+        for (int i = Math.max(0, handlerIndex); i < limit; i++) {
+            int op = insns.get(i).opcode();
+            if (op == 58) { // astore
+                return parseStoreSlot(insns.get(i).operand());
+            }
+            if (op >= 75 && op <= 78) { // astore_0..3
+                return op - 75;
+            }
+            if (op == 87) { // pop：捕获变量被丢弃
+                return -1;
+            }
+        }
+        return -1;
+    }
+
+    /** 从 {@code astore var <slot>} 的操作数中解析槽位号（操作数形如 {@code "var 4"}）。 */
+    private static int parseStoreSlot(String operand) {
+        if (operand == null) {
+            return -1;
+        }
+        String s = operand.trim();
+        if (s.startsWith("var ")) {
+            s = s.substring(4).trim();
+        }
+        try {
+            return Integer.parseInt(s);
+        } catch (RuntimeException ex) {
+            return -1;
+        }
+    }
+
+    private int blockIdOfInsn(int insnIndex) {
+        if (insnIndex < 0) {
+            return -1;
+        }
+        BasicBlock b = cfg.blockOfInsn(insnIndex);
+        return b == null ? -1 : b.id();
+    }
+
+    /**
+     * 剥离 catch 体开头的“异常对象入槽”赋值语句。
+     *
+     * <p>处理器入口的 {@code astore} 把隐式栈顶的异常对象存入捕获变量，这条赋值在
+     * 表达式层没有对应来源（渲染为占位注释）。既然 catch 形参已经声明了该变量，
+     * 这里就把这条首语句移除，避免输出噪声。</p>
+     */
+    private static Stmt stripCatchStore(Stmt body, int slot) {
+        if (slot < 0 || !(body instanceof Stmt.Block b)) {
+            return body;
+        }
+        List<Stmt> ss = b.statements();
+        if (ss.isEmpty() || !isStoreTo(ss.get(0), slot)) {
+            return body;
+        }
+        List<Stmt> rest = new ArrayList<>(ss.subList(1, ss.size()));
+        if (rest.size() == 1) {
+            return rest.get(0);
+        }
+        return new Stmt.Block(b.firstInsn(), b.lastInsn(), rest);
+    }
+
+    /** 判断一条语句是否为“对指定局部槽位的赋值”。 */
+    private static boolean isStoreTo(Stmt s, int slot) {
+        if (s instanceof Stmt.ExprStmt es && es.expr() instanceof Expr.Assign a) {
+            return a.target() instanceof Expr.Local l && l.slot() == slot;
+        }
+        return false;
+    }
 
     private Stmt structureIf(int block, int stop, int depth) {
         ExpressionBuilder.Result r = reconstruct(block);

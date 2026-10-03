@@ -322,15 +322,32 @@ public abstract class Stmt extends AstNode {
     /** 一个 catch 子句。 */
     public static final class CatchClause {
         private final String type;
+        private final int varSlot;
         private final Stmt body;
 
+        /** 兼容旧签名的构造器：无变量槽（渲染时回退为 {@code e}）。 */
         public CatchClause(String type, Stmt body) {
+            this(type, -1, body);
+        }
+
+        /**
+         * @param type    被捕获的内部类型名；捕获所有时为 {@code null}
+         * @param varSlot 捕获变量所在局部槽位；未知为 {@code -1}
+         * @param body    处理器语句体
+         */
+        public CatchClause(String type, int varSlot, Stmt body) {
             this.type = type;
+            this.varSlot = varSlot;
             this.body = body;
         }
 
         public String type() {
             return type;
+        }
+
+        /** @return 捕获变量所在局部槽位；未知为 {@code -1} */
+        public int varSlot() {
+            return varSlot;
         }
 
         public Stmt body() {
@@ -364,6 +381,50 @@ public abstract class Stmt extends AstNode {
             for (CatchClause c : catches) {
                 kids.add(c.body());
             }
+            return kids;
+        }
+    }
+
+    /**
+     * 同步块：{@code synchronized (lock) { body }}。
+     *
+     * <p>字节码里它被 javac 展开为 {@code monitorenter} + 受异常保护的
+     * {@code monitorexit}。这里把它还原为源码里的同步语句，而不是泄漏底层监视器
+     * 指令。</p>
+     */
+    public static final class Synchronized extends Stmt {
+        private final Expr lock;
+        private final Stmt body;
+
+        /**
+         * @param firstInsn 起始指令索引
+         * @param lastInsn  结束指令索引
+         * @param lock      锁表达式（{@code synchronized} 的括号内容）
+         * @param body      同步体
+         */
+        public Synchronized(int firstInsn, int lastInsn, Expr lock, Stmt body) {
+            super(firstInsn, lastInsn);
+            this.lock = lock;
+            this.body = body;
+        }
+
+        /** @return 锁表达式 */
+        public Expr lock() {
+            return lock;
+        }
+
+        /** @return 同步体 */
+        public Stmt body() {
+            return body;
+        }
+
+        @Override
+        public List<AstNode> children() {
+            List<AstNode> kids = new ArrayList<>();
+            if (lock != null) {
+                kids.add(lock);
+            }
+            kids.add(body);
             return kids;
         }
     }

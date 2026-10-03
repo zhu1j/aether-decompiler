@@ -166,7 +166,8 @@ public final class ExpressionBuilder {
                 statements.add(new Stmt.ExprStmt(insn.index(), new Expr.ArrayStore(insn.index(), arr, idx, val)));
             }
             case 87, 88 -> popSafe(insn.index());
-            case 89, 90, 91 -> { /* dup*：new/数组初始化模式由各自分支处理，这里保持近似无操作 */ }
+            case 89 -> dupTop(); // dup：复制栈顶，供同步块的监视器引用与后续 monitorexit 复用
+            case 90, 91 -> { /* dup_x*：new/数组初始化模式由各自分支处理，这里保持近似无操作 */ }
             case 92, 93, 94 -> { /* dup2*：近似为无操作 */ }
             case 95 -> { /* swap：近似为无操作 */ }
             case 96 -> binary(insn, "+");
@@ -236,9 +237,15 @@ public final class ExpressionBuilder {
                 push(new Expr.NewArray(insn.index(), atypeName(insn.operand()), size));
             }
             case 189 -> {
-                // anewarray：操作数是元素类型的内部名（引用类型数组）。
+                // anewarray：操作数是元素类型描述符，可能自身是数组（如 new int[n][] → "[I"）。
+                // 需剥掉前导 '[' 取基类型，并记录额外维度，否则会渲染出非法的 "new [I[n]"。
                 Expr size = popSafe(insn.index());
-                push(new Expr.NewArray(insn.index(), insn.operand().replace('/', '.'), size));
+                String desc = insn.operand();
+                int dims = 0;
+                while (dims < desc.length() && desc.charAt(dims) == '[') {
+                    dims++;
+                }
+                push(new Expr.NewArray(insn.index(), elemType(desc), size, dims));
             }
             case 190 -> push(new Expr.ArrayLength(insn.index(), popSafe(insn.index())));
             case 191 -> {
@@ -468,6 +475,22 @@ public final class ExpressionBuilder {
 
     private void push(Expr e) {
         stack.push(e);
+    }
+
+    /** {@code dup}：复制栈顶元素（不产生语句），维持操作数栈的形状。 */
+    private void dupTop() {
+        if (!stack.isEmpty()) {
+            stack.push(stack.peek());
+        }
+    }
+
+    /**
+     * @return 构建结束后残留在栈顶的表达式；栈为空时返回 {@code null}
+     *
+     * <p>同步块还原时用它在“监视器入栈”处取回锁表达式（例如 {@code this.lock}）。</p>
+     */
+    public Expr topExpr() {
+        return stack.isEmpty() ? null : stack.peek();
     }
 
     private Expr popSafe(int insn) {

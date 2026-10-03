@@ -23,6 +23,7 @@ import com.aetherdecompiler.api.ErrorCode;
 import com.aetherdecompiler.core.model.ClassModel;
 import com.aetherdecompiler.core.model.FieldModel;
 import com.aetherdecompiler.core.model.Insn;
+import com.aetherdecompiler.core.model.LocalVariable;
 import com.aetherdecompiler.core.model.MethodModel;
 import com.aetherdecompiler.core.model.TryCatchEntry;
 
@@ -41,6 +42,7 @@ import org.objectweb.asm.tree.JumpInsnNode;
 import org.objectweb.asm.tree.LabelNode;
 import org.objectweb.asm.tree.LdcInsnNode;
 import org.objectweb.asm.tree.LineNumberNode;
+import org.objectweb.asm.tree.LocalVariableNode;
 import org.objectweb.asm.tree.LookupSwitchInsnNode;
 import org.objectweb.asm.tree.MethodInsnNode;
 import org.objectweb.asm.tree.MethodNode;
@@ -169,8 +171,19 @@ public final class AsmClassParser {
             }
         }
 
+        // 读取局部变量表（可选调试属性）。把“槽位 → 真实名字/类型”从调试信息
+        // 提升为一等模型，供下游恢复真实变量名；缺失时下游回退为 vN。
+        List<LocalVariable> locals = new ArrayList<>();
+        if (mn.localVariables != null) {
+            for (LocalVariableNode lv : mn.localVariables) {
+                int start = resolveLabel(labelIndex, lv.start, count);
+                int end = resolveLabel(labelIndex, lv.end, count);
+                locals.add(new LocalVariable(lv.name, lv.desc, lv.index, start, end));
+            }
+        }
+
         return new MethodModel(mn.access, mn.name, mn.desc, mn.signature,
-                insns, handlers, mn.maxStack, mn.maxLocals);
+                insns, handlers, locals, mn.maxStack, mn.maxLocals);
     }
 
     private Insn toInsn(int index, AbstractInsnNode n, Map<LabelNode, Integer> labelIndex) {
