@@ -64,7 +64,6 @@ import javafx.scene.control.Label;
 import javafx.scene.control.ListCell;
 import javafx.scene.control.ListView;
 import javafx.scene.control.ProgressBar;
-import javafx.scene.control.ScrollPane;
 import javafx.scene.control.Slider;
 import javafx.scene.control.SplitPane;
 import javafx.scene.control.Tab;
@@ -232,6 +231,10 @@ public final class AetherStudio extends Application {
 
         primaryStage.setTitle(AetherVersion.PROJECT + "  \u00b7  Studio");
         primaryStage.setScene(scene);
+        // 缺陷修复：给窗口设一个可用下限，避免用户把窗口拖得过矮/过窄后，顶栏被
+        // BorderPane 压缩到看不见（表现为“顶部菜单按钮消失”）。
+        primaryStage.setMinWidth(960);
+        primaryStage.setMinHeight(600);
         primaryStage.show();
 
         // 窗口首次显示后再校准一次背景几何：此前场景/布局尺寸可能尚未就绪，
@@ -629,6 +632,11 @@ public final class AetherStudio extends Application {
         brand.getStyleClass().add("brand");
         Label motto = new Label("\u201c" + AetherVersion.MOTTO + "\u201d");
         motto.getStyleClass().add("motto");
+        // 窗口收窄时优先压缩标语（省略号），而不是把右侧工具按钮挤出可视区，
+        // 这样按钮不会因为宽度不足而“消失”。
+        motto.setTextOverrun(javafx.scene.control.OverrunStyle.ELLIPSIS);
+        motto.setMinWidth(0);
+        HBox.setHgrow(motto, Priority.SOMETIMES);
 
         Label spacer = new Label();
         HBox.setHgrow(spacer, Priority.ALWAYS);
@@ -678,17 +686,11 @@ public final class AetherStudio extends Application {
                 exportAll, setOutDir, openOutDir);
         bar.getStyleClass().add("topbar");
         bar.setAlignment(Pos.CENTER_LEFT);
-        // 缺陷修复：窗口被拖窄时，顶栏原先既无最小高度也不可滚动，按钮被一路压缩到
-        // 高度 0，整条顶栏连带工具按钮一起“消失”。这里给顶栏固定最小高度，并把它放进
-        // 可横向滚动的容器：窗口再窄，顶栏也始终可见，溢出的按钮可通过横向滚动访问。
+        // 回退：不再把顶栏塞进横向滚动容器（那条滚动条既难看又难用）。恢复为原来的
+        // 整排按钮布局；只固定顶栏最小高度——窗口被压矮时，BorderPane 的顶部区域不会
+        // 再把顶栏压成一条看不见的细线，从而避免“顶部菜单按钮消失”。
         bar.setMinHeight(Region.USE_PREF_SIZE);
-        ScrollPane scroller = new ScrollPane(bar);
-        scroller.setFitToHeight(true);
-        scroller.setHbarPolicy(ScrollPane.ScrollBarPolicy.AS_NEEDED);
-        scroller.setVbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
-        scroller.setMinHeight(Region.USE_PREF_SIZE);
-        scroller.getStyleClass().add("topbar-scroll");
-        return scroller;
+        return bar;
     }
 
     // -------------------------------------------------------- 背景对话框

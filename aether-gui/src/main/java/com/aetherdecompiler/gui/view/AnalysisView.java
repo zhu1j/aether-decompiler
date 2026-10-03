@@ -58,10 +58,11 @@ public final class AnalysisView extends SplitPane {
     public AnalysisView() {
         getStyleClass().add("analysis-view");
 
-        VBox ssaPane = new VBox(labeled("SSA 形式（phi 节点 / 定值-使用）", ssaArea));
-        VBox astPane = new VBox(labeled("AST → Java（结构化控制流）", astArea));
-        VBox.setVgrow(ssaArea, Priority.ALWAYS);
-        VBox.setVgrow(astArea, Priority.ALWAYS);
+        // 缺陷修复：此前把 labeled(...) 返回的 VBox 又套进一层 VBox，内层 VBox 拿不到
+        // 纵向拉伸，内容只按“内容自身高度”顶在上半部分，整块分析区看起来“只显示了一半”。
+        // 这里直接使用已含“标题 + 代码区”的 VBox 作为分割面板的两项，让内容铺满全高。
+        VBox ssaPane = labeled("SSA 形式（phi 节点 / 定值-使用）", ssaArea);
+        VBox astPane = labeled("AST → Java（结构化控制流）", astArea);
         getItems().addAll(ssaPane, astPane);
         setOrientation(javafx.geometry.Orientation.VERTICAL);
         setDividerPositions(0.5);

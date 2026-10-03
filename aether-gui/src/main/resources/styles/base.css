@@ -271,24 +271,6 @@
     -fx-text-fill: -ae-accent;
 }
 
-/* --------------------------------------------------------------- 顶栏滚动容器 */
-
-/* 顶栏放入 ScrollPane 后，容器与视口都必须透明，才能露出 .topbar 自身的渐变与下边框；
-   否则 ScrollPane 默认的浅色视口会在顶栏外围露出一圈白边。 */
-.topbar-scroll {
-    -fx-background-color: transparent;
-    -fx-background-insets: 0;
-    -fx-padding: 0;
-}
-
-.topbar-scroll > .viewport {
-    -fx-background-color: transparent;
-}
-
-.topbar-scroll > .scroll-bar:horizontal {
-    -fx-background-color: -ae-bg-alt;
-}
-
 /* --------------------------------------------------------------------- CFG */
 
 .cfg-view,
